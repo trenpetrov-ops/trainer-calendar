@@ -1,12 +1,16 @@
-Trainer Calendar - minimal React app
--------------------------------------
+Trainer Calendar with TailwindCSS
+-----------------------------------
 
-Run locally:
-1. unzip (if needed) and open terminal in project folder.
+This project is a Create React App configured with TailwindCSS.
+
+How to run locally:
+1. unzip and open terminal in project folder
 2. npm install
 3. npm start
-Then open http://localhost:3000
+Open http://localhost:3000
+
+To deploy: push to GitHub and connect repository to Vercel (auto-deploy).
 
 Notes:
-- Data stored in localStorage (trainer_bookings_v7, trainer_packages_v4).
-- To make a shared database, consider Firebase Realtime Database or Supabase; I can add integration.
+- Tailwind is already configured (tailwind.config.js, postcss.config.js).
+- Keep your existing TrainerCalendar.jsx in src/ (already copied).

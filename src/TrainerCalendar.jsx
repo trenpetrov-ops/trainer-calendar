@@ -53,7 +53,20 @@ function AutoFitText({ text, className, min = 10, max = 14 }) {
     requestAnimationFrame(tryFit);
   }, [text, max, min]);
   return (
-    <span ref={ref} className={className} style={{ fontSize: size + "px", lineHeight: "1.2", display: "inline-block", width: "100%", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+    <span
+      ref={ref}
+      className={className}
+      style={{
+        fontSize: size + "px",
+        lineHeight: "1.2",
+        display: "inline-block",
+        width: "100%",
+        textAlign: "center",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }}
+    >
       {text}
     </span>
   );
@@ -107,11 +120,6 @@ export default function TrainerCalendar() {
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
   }
 
-  function firstAvailablePackageForClient(name) {
-    const list = packages[name] || [];
-    return list.find((p) => p.used < p.size) || null;
-  }
-
   function openBookingModal(date, hour) {
     setModalDate(date);
     setModalHour(hour);
@@ -145,7 +153,9 @@ export default function TrainerCalendar() {
     setBookings((prev) => [...prev, b]);
     setPackages((prev) => {
       const copy = { ...prev };
-      copy[name] = (copy[name] || []).map((p) => (p.id === targetPkg.id ? { ...p, used: (p.used || 0) + 1 } : p));
+      copy[name] = (copy[name] || []).map((p) =>
+        p.id === targetPkg.id ? { ...p, used: (p.used || 0) + 1 } : p
+      );
       return copy;
     });
     setModalOpen(false);
@@ -161,14 +171,16 @@ export default function TrainerCalendar() {
         setPackages((prev) => {
           const copy = { ...prev };
           if (copy[b.clientName]) {
-            copy[b.clientName] = copy[b.clientName].map((p) => (p.id === b.packageId ? { ...p, used: Math.max(0, (p.used||0) - 1) } : p));
+            copy[b.clientName] = copy[b.clientName].map((p) =>
+              p.id === b.packageId ? { ...p, used: Math.max(0, (p.used || 0) - 1) } : p
+            );
           }
           return copy;
         });
         setBookings((prev) => prev.filter((x) => x.id !== id));
         setSelectedBooking(null);
         setConfirmState({ open: false, title: "", onConfirm: null });
-      },
+      }
     });
   }
 
@@ -211,7 +223,7 @@ export default function TrainerCalendar() {
           return copy;
         });
         setConfirmState({ open: false, title: "", onConfirm: null });
-      },
+      }
     });
   }
 
@@ -233,7 +245,7 @@ export default function TrainerCalendar() {
           return copy;
         });
         setConfirmState({ open: false, title: "", onConfirm: null });
-      },
+      }
     });
   }
 
@@ -253,12 +265,20 @@ export default function TrainerCalendar() {
   }
 
   function bookingsForPackage(packageId, clientName) {
-    return bookings.filter((b) => b.packageId === packageId && b.clientName === clientName).sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
+    return bookings
+      .filter((b) => b.packageId === packageId && b.clientName === clientName)
+      .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
   }
 
   function AddIconButton({ onClick }) {
     return (
-      <button onClick={(e) => { e.stopPropagation(); onClick && onClick(); }} className="w-full h-6 flex items-center justify-center text-green-600 text-xl leading-none">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick && onClick();
+        }}
+        className="w-full h-6 flex items-center justify-center text-green-600 text-xl leading-none"
+      >
         +
       </button>
     );
@@ -277,61 +297,91 @@ export default function TrainerCalendar() {
         </div>
       </header>
 
-      <table className="border-collapse w-full text-xs">
-        <thead>
-          <tr>
-            <th className="border px-1 py-0.5 bg-yellow-300 text-center">Тай<br/><span className="text-[10px]">(UTC+7)</span></th>
-            <th className="border px-1 py-0.5 bg-gray-300 text-center">Рус<br/><span className="text-[10px]">(UTC+3)</span></th>
-            {weekDaysCache.map((day, idx) => (
-              <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"}`}>
-                <div className="font-bold text-center">{format(day, "d LLL", { locale: ruLocale })}</div>
-                <div className="text-center">{format(day, "EEE", { locale: ruLocale })}</div>
+      {/* таблица */}
+      <div className="overflow-x-auto">
+        <table className="border-collapse w-full text-xs table-fixed min-w-[900px]">
+          <thead>
+            <tr>
+              <th className="border px-1 py-0.5 bg-yellow-300 text-center sticky left-0 z-30 w-20">
+                Тай<br/><span className="text-[10px]">(UTC+7)</span>
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {HOURS.map((h) => (
-            <tr key={h}>
-              <td className="border px-1 py-0.5 text-center align-top bg-yellow-100">{formatHourForTH(h)}</td>
-              <td className="border px-1 py-0.5 text-center align-top bg-gray-100">{formatHourForRU(h)}</td>
-              {weekDaysCache.map((day, idx) => {
-                const items = bookingsForDayHour(day, h);
-                return (
-                  <td key={idx} className={`border align-top px-1 py-0.5 ${idx >= 5 ? "bg-orange-50" : ""}`}>
-                    <div className="flex flex-col gap-1 h-8">
-                      {items.map((b) => (
-                        <div
-                          key={b.id}
-                          className="relative bg-blue-100 rounded px-1 flex items-center justify-center cursor-pointer h-6 overflow-hidden"
-                          onClick={(e) => { e.stopPropagation(); setSelectedBooking(selectedBooking === b.id ? null : b.id); }}
-                        >
-                          <div className="w-full">
-                            <AutoFitText text={`${b.clientName} - ${b.sessionNumber}`} className="block" min={9} max={12} />
-                          </div>
-                          {selectedBooking === b.id && (
-                            <button title="Удалить" onClick={(e) => { e.stopPropagation(); requestDeleteBooking(b.id); }} className="absolute top-0 right-0 p-1 text-red-500 text-xs">
-                              ✕
-                            </button>
-                          )}
-                        </div>
-                      ))}
-
-                      {items.length === 0 && (
-                        <div className="h-6 flex items-center justify-center">
-                          <AddIconButton onClick={() => openBookingModal(day, h)} />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                );
-              })}
+              <th className="border px-1 py-0.5 bg-gray-300 text-center sticky left-20 z-20 w-20">
+                Рус<br/><span className="text-[10px]">(UTC+3)</span>
+              </th>
+              {weekDaysCache.map((day, idx) => (
+                <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"}`}>
+                  <div className="font-bold text-center">{format(day, "d LLL", { locale: ruLocale })}</div>
+                  <div className="text-center">{format(day, "EEE", { locale: ruLocale })}</div>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {HOURS.map((h) => (
+              <tr key={h}>
+                <td className="border px-1 py-0.5 text-center align-top bg-yellow-100 sticky left-0 z-20 w-20">
+                  {formatHourForTH(h)}
+                </td>
+                <td className="border px-1 py-0.5 text-center align-top bg-gray-100 sticky left-20 z-10 w-20">
+                  {formatHourForRU(h)}
+                </td>
+                {weekDaysCache.map((day, idx) => {
+                  const items = bookingsForDayHour(day, h);
+                  const isBooked = items.length > 0;
+                  return (
+                    <td
+                      key={idx}
+                      onClick={() => {
+                        if (!isBooked) openBookingModal(day, h);
+                      }}
+                      className={`border align-top px-1 py-0.5 cursor-pointer ${
+                        idx >= 5 ? "bg-orange-50" : ""
+                      } ${isBooked ? "bg-blue-200" : ""}`}
+                    >
+                      <div className="flex flex-col gap-1 h-8">
+                        {items.map((b) => (
+                          <div
+                            key={b.id}
+                            className="relative rounded px-1 flex items-center justify-center cursor-pointer h-6 overflow-hidden"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedBooking(selectedBooking === b.id ? null : b.id);
+                            }}
+                          >
+                            <div className="w-full">
+                              <AutoFitText text={`${b.clientName} - ${b.sessionNumber}`} className="block" min={9} max={12} />
+                            </div>
+                            {selectedBooking === b.id && (
+                              <button
+                                title="Удалить"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  requestDeleteBooking(b.id);
+                                }}
+                                className="absolute top-0 right-0 p-1 text-red-500 text-xs opacity-40 hover:opacity-100"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        ))}
 
-      {/* Панель клиентов */}
+                        {!isBooked && (
+                          <div className="h-6 flex items-center justify-center">
+                            <AddIconButton onClick={() => openBookingModal(day, h)} />
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Панель клиентов внизу */}
       <div className="mt-6 p-4 border rounded bg-gray-50">
         <div className="flex justify-between items-start">
           <h2 className="font-semibold">Прогресс клиентов</h2>
@@ -351,6 +401,7 @@ export default function TrainerCalendar() {
                     <div className="font-semibold">{name}</div>
                     <div className="text-xs text-gray-600">{`${totalUsed}/${totalSize}`}</div>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <button onClick={() => openPackageModalFor(name)} className="text-green-600 text-xs">+ пакет</button>
                     <button onClick={() => requestRemoveClient(name)} className="text-red-500 text-xs">✕</button>
@@ -361,17 +412,31 @@ export default function TrainerCalendar() {
                   <div className="mt-2 ml-4">
                     {pkgList.map((p) => (
                       <div key={p.id} className="mb-1">
-                        <div className="flex justify-between items-center cursor-pointer" onClick={() => togglePackageExpand(p.id)}>
-                          <div className="text-xs text-gray-700">{`${(p.used||0)}/${p.size} — ${formatPurchase(p.addedISO)}`}</div>
-                          {(p.used||0) >= p.size && (
-                            <button onClick={(e) => { e.stopPropagation(); requestRemovePackage(name, p.id); }} className="text-red-500 text-xs">✕</button>
+                        <div
+                          className="flex justify-between items-center cursor-pointer"
+                          onClick={() => togglePackageExpand(p.id)}
+                        >
+                          <div className="text-xs text-gray-700">{`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}</div>
+                          {(p.used || 0) >= p.size && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestRemovePackage(name, p.id);
+                              }}
+                              className="text-red-500 text-xs"
+                            >
+                              ✕
+                            </button>
                           )}
                         </div>
+
                         {expandedPackages[p.id] && (
                           <ul className="text-[11px] text-gray-600 ml-4 mt-1 list-disc">
                             {bookingsForPackage(p.id, name).length === 0 && <li>Нет записей</li>}
                             {bookingsForPackage(p.id, name).map((b) => (
-                              <li key={b.id}>{b.sessionNumber} / {p.size} — {format(parseISO(b.dateISO), "d LLL", { locale: ruLocale })}</li>
+                              <li key={b.id}>
+                                {b.sessionNumber} / {p.size} — {format(parseISO(b.dateISO), "d LLL", { locale: ruLocale })}
+                              </li>
                             ))}
                           </ul>
                         )}
@@ -385,15 +450,18 @@ export default function TrainerCalendar() {
         </div>
       </div>
 
+      {/* Модал добавления записи */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModalOpen(false)}>
           <div className="bg-white p-4 rounded w-80" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold mb-2">Добавить запись</h3>
             <p className="text-sm mb-2">{modalDate && format(modalDate, "d LLL (EEE)", { locale: ruLocale })} — {formatHourForTH(modalHour)} (TH) / {formatHourForRU(modalHour)} (RU)</p>
+
             <select value={modalClient} onChange={(e) => setModalClient(e.target.value)} className="border w-full px-2 py-1 rounded mb-3">
               <option value="">Выберите клиента</option>
               {[...clientNames()].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+
             <div className="flex gap-2">
               <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded">Сохранить</button>
               <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded">Отмена</button>
@@ -402,6 +470,7 @@ export default function TrainerCalendar() {
         </div>
       )}
 
+      {/* Модал добавления пакета */}
       {packageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPackageModalOpen(false)}>
           <div className="bg-white p-4 rounded w-80" onClick={(e) => e.stopPropagation()}>
@@ -419,7 +488,12 @@ export default function TrainerCalendar() {
         </div>
       )}
 
-      <ConfirmModal open={confirmState.open} title={confirmState.title} onCancel={() => setConfirmState({ open: false, title: "", onConfirm: null })} onConfirm={() => { confirmState.onConfirm && confirmState.onConfirm(); }} />
+      <ConfirmModal
+        open={confirmState.open}
+        title={confirmState.title}
+        onCancel={() => setConfirmState({ open: false, title: "", onConfirm: null })}
+        onConfirm={() => { confirmState.onConfirm && confirmState.onConfirm(); }}
+      />
     </div>
   );
 }

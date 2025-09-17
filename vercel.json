@@ -1,8 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "package.json", "use": "@vercel/static-build" }
-  ],
   "buildCommand": "CI= npm run build",
   "outputDirectory": "build"
 }

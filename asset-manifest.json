@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/trainer-calendar/static/css/main.f89a2f42.css",
-    "main.js": "/trainer-calendar/static/js/main.8299ccfd.js",
+    "main.css": "/trainer-calendar/static/css/main.f674272c.css",
+    "main.js": "/trainer-calendar/static/js/main.e789cb2f.js",
     "index.html": "/trainer-calendar/index.html",
-    "main.f89a2f42.css.map": "/trainer-calendar/static/css/main.f89a2f42.css.map",
-    "main.8299ccfd.js.map": "/trainer-calendar/static/js/main.8299ccfd.js.map"
+    "main.f674272c.css.map": "/trainer-calendar/static/css/main.f674272c.css.map",
+    "main.e789cb2f.js.map": "/trainer-calendar/static/js/main.e789cb2f.js.map"
   },
   "entrypoints": [
-    "static/css/main.f89a2f42.css",
-    "static/js/main.8299ccfd.js"
+    "static/css/main.f674272c.css",
+    "static/js/main.e789cb2f.js"
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/trainer-calendar/static/css/main.f89a2f42.css",
+    "main.js": "/trainer-calendar/static/js/main.8299ccfd.js",
+    "index.html": "/trainer-calendar/index.html",
+    "main.f89a2f42.css.map": "/trainer-calendar/static/css/main.f89a2f42.css.map",
+    "main.8299ccfd.js.map": "/trainer-calendar/static/js/main.8299ccfd.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f89a2f42.css",
+    "static/js/main.8299ccfd.js"
+  ]
+}

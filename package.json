@@ -2,22 +2,21 @@
   "name": "trainer-calendar",
   "version": "1.0.0",
   "private": true,
-"dependencies": {
-  "autoprefixer": "^10.4.16",
-  "cross-env": "^7.0.3",
-  "date-fns": "2.30.0",
-  "postcss": "^8.4.31",
-  "react": "^18.2.0",
-  "react-dom": "^18.2.0",
-  "react-scripts": "5.0.1",
-  "tailwindcss": "^3.4.0"
-},
-"scripts": {
-  "start": "react-scripts start",
-  "build": "react-scripts build"
-  "test": "react-scripts test",
-  "eject": "react-scripts eject"
-},
+  "dependencies": {
+    "autoprefixer": "^10.4.16",
+    "date-fns": "2.30.0",
+    "postcss": "^8.4.31",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "tailwindcss": "^3.4.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
   "eslintConfig": {
     "extends": [
       "react-app",

@@ -12,7 +12,7 @@
     "react-scripts": "5.0.1",
     "tailwindcss": "^3.4.0"
   },
-  "homepage": "https://trenpetrov-ops.github.io/trainer-calendar",
+  
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

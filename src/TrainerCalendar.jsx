@@ -355,7 +355,7 @@ export default function TrainerCalendar() {
                                   e.stopPropagation();
                                   requestDeleteBooking(b.id);
                                 }}
-                                className="absolute top-0 right-0 p-0.5 text-red-500 text-[9px] opacity-40 hover:opacity-100"
+                                className="absolute top-0 right-0 p-0.5 text-red-500 text-[9px] opacity-0 hover:opacity-100"
                               >
                                 ✕
                               </button>

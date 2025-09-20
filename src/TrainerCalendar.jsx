@@ -308,11 +308,11 @@ export default function TrainerCalendar() {
 
       {/* таблица (умещается на мобильном) */}
       <div className="overflow-x-hidden">
-        <table className="border-collapse w-full text-[10px] table-fixed">
+        <table className="border-collapse w-full text-[7px] table-fixed">
           <thead>
             <tr>
-              <th className="border bg-yellow-300 text-center w-10">TH<br/><span className="text-[7px]">+7</span></th>
-              <th className="border bg-gray-300 text-center w-10">RU<br/><span className="text-[7px]">+3</span></th>
+              <th className="border bg-yellow-300 text-center w-7">TH<br/><span className="text-[7px]"></span></th>
+              <th className="border bg-gray-300 text-center w-7">RU<br/><span className="text-[7px]"></span></th>
               {weekDaysCache.map((day, idx) => (
                 <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"} text-[9px]`}>
                   <div>{format(day, "d LLL", { locale: ruLocale })}</div>
@@ -324,8 +324,8 @@ export default function TrainerCalendar() {
           <tbody>
             {HOURS.map((h) => (
               <tr key={h}>
-                <td className="border text-center bg-yellow-100 w-10">{formatHourForTH(h)}</td>
-                <td className="border text-center bg-gray-100 w-10">{formatHourForRU(h)}</td>
+                <td className="border text-center bg-yellow-100 w-7">{formatHourForTH(h)}</td>
+                <td className="border text-center bg-gray-100 w-7">{formatHourForRU(h)}</td>
                 {weekDaysCache.map((day, idx) => {
                   const items = bookingsForDayHour(day, h);
                   const isBooked = items.length > 0;

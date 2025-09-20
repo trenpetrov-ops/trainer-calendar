@@ -302,11 +302,12 @@ export default function TrainerCalendar() {
         <table className="border-collapse w-full text-xs table-fixed min-w-[900px]">
           <thead>
             <tr>
-              <th className="border px-1 py-0.5 bg-yellow-300 text-center sticky left-0 z-30 w-20">
-                Тай<br/><span className="text-[10px]">(UTC+7)</span>
+             { /* столбик тай и рус */}
+              <th className="border px-1 py-0.5 bg-yellow-300 text-center sticky left-0 z-30 w-14">
+                Тай<br/><span className="text-[7px]">(UTC+7)</span>
               </th>
-              <th className="border px-1 py-0.5 bg-gray-300 text-center sticky left-20 z-20 w-20">
-                Рус<br/><span className="text-[10px]">(UTC+3)</span>
+              <th className="border px-1 py-0.5 bg-gray-300 text-center sticky left-20 z-20 w-14">
+                Рус<br/><span className="text-[7px]">(UTC+3)</span>
               </th>
               {weekDaysCache.map((day, idx) => (
                 <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"}`}>

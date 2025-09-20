@@ -299,7 +299,7 @@ export default function TrainerCalendar() {
       {/* заголовок */}
       <header className="flex items-center justify-between mb-2">
         <h1 className="text-lg font-bold">Календарь</h1>
-        <div className="flex gap-1 text-[11px]">
+        <div className="flex gap-1 text-[17px]">
           <button onClick={() => setAnchorDate(subWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">←</button>
           <button onClick={() => setAnchorDate(new Date())} className="px-2 py-0.5 bg-gray-100 rounded">Сегодня</button>
           <button onClick={() => setAnchorDate(addWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">→</button>
@@ -315,8 +315,8 @@ export default function TrainerCalendar() {
               <th className="border bg-gray-300 text-center w-7">RU<br/><span className="text-[7px]"></span></th>
               {weekDaysCache.map((day, idx) => (
                 <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"} text-[9px]`}>
-                  <div>{format(day, "d LLL", { locale: ruLocale })}</div>
-                  <div>{format(day, "EEE", { locale: ruLocale })}</div>
+                  <div className="italic text-[7px]">{format(day, "d LLL", { locale: ruLocale })}</div>
+                  <div className="font-bold text-center text-[9px]">{format(day, "EE", { locale: ruLocale }).replace('.', '').slice(0, 3)}</div>
                 </th>
               ))}
             </tr>

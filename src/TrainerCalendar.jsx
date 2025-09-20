@@ -335,7 +335,7 @@ export default function TrainerCalendar() {
             {HOURS.map((h) => (
               <tr key={h}>
                 {/* Время Тай */}
-                <td className="border px-1 py-0.5 text-center align-top bg-yellow-100 sticky left-0 z-20 w-14 text-[11px]">
+                <td className="border px-1 py-0.5 text-center align-top bg-yellow-100 sticky left-0 z-20 w-9 text-[11px]">
                   {formatHourForTH(h)}
                 </td>
                 {/* Время Рус */}

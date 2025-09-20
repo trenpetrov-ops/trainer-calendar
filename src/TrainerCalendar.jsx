@@ -1,7 +1,9 @@
+// TrainerCalendar.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { addDays, startOfWeek, format, addWeeks, subWeeks, parseISO } from "date-fns";
 import ruLocale from "date-fns/locale/ru";
 
+// Хук: state + сохранение в localStorage
 function useLocalStorageState(key, initial) {
   const [state, setState] = useState(() => {
     try {
@@ -19,22 +21,24 @@ function useLocalStorageState(key, initial) {
   return [state, setState];
 }
 
+// Модал подтверждения удаления
 function ConfirmModal({ open, title, onCancel, onConfirm }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white p-4 rounded w-80 shadow">
+      <div className="bg-white p-3 rounded w-72 shadow text-sm">
         <div className="font-semibold mb-2">{title}</div>
         <div className="flex gap-2 justify-end">
-          <button onClick={onCancel} className="px-3 py-1 rounded bg-gray-200">Отмена</button>
-          <button onClick={onConfirm} className="px-3 py-1 rounded bg-red-500 text-white">Удалить</button>
+          <button onClick={onCancel} className="px-2 py-1 rounded bg-gray-200">Отмена</button>
+          <button onClick={onConfirm} className="px-2 py-1 rounded bg-red-500 text-white">Удалить</button>
         </div>
       </div>
     </div>
   );
 }
 
-function AutoFitText({ text, className, min = 10, max = 14 }) {
+// Автоуменьшающийся текст
+function AutoFitText({ text, className, min = 7, max = 11 }) {
   const ref = useRef(null);
   const [size, setSize] = useState(max);
   useEffect(() => {
@@ -45,7 +49,7 @@ function AutoFitText({ text, className, min = 10, max = 14 }) {
       let current = max;
       while (current > min) {
         el.style.fontSize = current + "px";
-        if (el.scrollWidth <= el.clientWidth - 6) break;
+        if (el.scrollWidth <= el.clientWidth - 4) break;
         current -= 1;
       }
       setSize(current);
@@ -58,7 +62,7 @@ function AutoFitText({ text, className, min = 10, max = 14 }) {
       className={className}
       style={{
         fontSize: size + "px",
-        lineHeight: "1.2",
+        lineHeight: "1.1",
         display: "inline-block",
         width: "100%",
         textAlign: "center",
@@ -72,7 +76,9 @@ function AutoFitText({ text, className, min = 10, max = 14 }) {
   );
 }
 
+// Основной компонент
 export default function TrainerCalendar() {
+  // состояния
   const [anchorDate, setAnchorDate] = useState(new Date());
   const [bookings, setBookings] = useLocalStorageState("trainer_bookings_v2", []);
   const [packages, setPackages] = useLocalStorageState("trainer_packages_v2", {});
@@ -90,6 +96,7 @@ export default function TrainerCalendar() {
   const [expandedPackages, setExpandedPackages] = useState({});
   const [confirmState, setConfirmState] = useState({ open: false, title: "", onConfirm: null });
 
+  // даты/часы
   function startOfWeekFor(date) {
     return startOfWeek(date, { weekStartsOn: 1 });
   }
@@ -97,7 +104,7 @@ export default function TrainerCalendar() {
     const start = startOfWeekFor(baseDate);
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
   }
-  const HOURS = Array.from({ length: 15 }).map((_, i) => 7 + i);
+  const HOURS = Array.from({ length: 15 }).map((_, i) => 7 + i); // 7..21
 
   function formatHourForTH(hour) {
     return `${String(hour).padStart(2, "0")}:00`;
@@ -107,14 +114,15 @@ export default function TrainerCalendar() {
     return `${String(ru).padStart(2, "0")}:00`;
   }
 
+  // клиенты/пакеты
   function clientNames() {
     return Object.keys(packages);
   }
-
   function activeClients() {
     return clientNames().filter((n) => (packages[n] || []).some((p) => p.used < p.size));
   }
 
+  // брони
   function bookingsForDayHour(date, hour) {
     const dateISO = date.toISOString().slice(0, 10);
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
@@ -184,12 +192,12 @@ export default function TrainerCalendar() {
     });
   }
 
+  // пакеты
   function openPackageModalFor(name = "") {
     setPackageClient(name);
     setPackageSize(10);
     setPackageModalOpen(true);
   }
-
   function savePackage() {
     const name = (packageClient || "").trim();
     if (!name) {
@@ -215,7 +223,7 @@ export default function TrainerCalendar() {
     }
     setConfirmState({
       open: true,
-      title: `Удалить клиента ${name} из списка? (записи в календаре останутся)`,
+      title: `Удалить клиента ${name}?`,
       onConfirm: () => {
         setPackages((prev) => {
           const copy = { ...prev };
@@ -237,7 +245,7 @@ export default function TrainerCalendar() {
     }
     setConfirmState({
       open: true,
-      title: `Удалить пакет ${pkg.used}/${pkg.size} у ${clientName}? (записи останутся)`,
+      title: `Удалить пакет ${pkg.used}/${pkg.size} у ${clientName}?`,
       onConfirm: () => {
         setPackages((prev) => {
           const copy = { ...prev };
@@ -249,6 +257,7 @@ export default function TrainerCalendar() {
     });
   }
 
+  // вспомогательные
   function formatPurchase(dateISO) {
     try {
       return format(parseISO(dateISO), "d LLL", { locale: ruLocale });
@@ -256,14 +265,12 @@ export default function TrainerCalendar() {
       return dateISO;
     }
   }
-
   function toggleClientExpand(name) {
     setExpandedClients((prev) => ({ ...prev, [name]: !prev[name] }));
   }
   function togglePackageExpand(packageId) {
     setExpandedPackages((prev) => ({ ...prev, [packageId]: !prev[packageId] }));
   }
-
   function bookingsForPackage(packageId, clientName) {
     return bookings
       .filter((b) => b.packageId === packageId && b.clientName === clientName)
@@ -277,7 +284,7 @@ export default function TrainerCalendar() {
           e.stopPropagation();
           onClick && onClick();
         }}
-        className="w-full h-6 flex items-center justify-center text-green-600 text-xl leading-none"
+        className="w-full h-5 flex items-center justify-center text-green-600 text-lg leading-none"
       >
         +
       </button>
@@ -286,33 +293,30 @@ export default function TrainerCalendar() {
 
   const weekDaysCache = weekDays(anchorDate);
 
+  // UI
   return (
-    <div className="p-4 font-sans max-w-[1200px] mx-auto overflow-x-auto" onClick={() => setSelectedBooking(null)}>
-      <header className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Тренировочный календарь</h1>
-        <div className="flex gap-2">
-          <button onClick={() => setAnchorDate(subWeeks(anchorDate, 1))} className="px-3 py-1 bg-gray-100 rounded">← Неделя</button>
-          <button onClick={() => setAnchorDate(new Date())} className="px-3 py-1 bg-gray-100 rounded">Сегодня</button>
-          <button onClick={() => setAnchorDate(addWeeks(anchorDate, 1))} className="px-3 py-1 bg-gray-100 rounded">Неделя →</button>
+    <div className="p-2 font-sans max-w-full mx-auto text-xs" onClick={() => setSelectedBooking(null)}>
+      {/* заголовок */}
+      <header className="flex items-center justify-between mb-2">
+        <h1 className="text-lg font-bold">Календарь</h1>
+        <div className="flex gap-1 text-[11px]">
+          <button onClick={() => setAnchorDate(subWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">←</button>
+          <button onClick={() => setAnchorDate(new Date())} className="px-2 py-0.5 bg-gray-100 rounded">Сегодня</button>
+          <button onClick={() => setAnchorDate(addWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">→</button>
         </div>
       </header>
 
-      {/* таблица */}
-      <div className="overflow-x-auto">
-        <table className="border-collapse w-full text-xs table-fixed min-w-[900px]">
+      {/* таблица (умещается на мобильном) */}
+      <div className="overflow-x-hidden">
+        <table className="border-collapse w-full text-[10px] table-fixed">
           <thead>
             <tr>
-             { /* столбик тай и рус */}
-              <th className="border px-1 py-0.5 bg-yellow-300 text-center sticky left-0 z-30 w-14">
-                Тай<br/><span className="text-[7px]">(UTC+7)</span>
-              </th>
-              <th className="border px-1 py-0.5 bg-gray-300 text-center sticky left-20 z-20 w-14">
-                Рус<br/><span className="text-[7px]">(UTC+3)</span>
-              </th>
+              <th className="border bg-yellow-300 text-center w-10">TH<br/><span className="text-[7px]">+7</span></th>
+              <th className="border bg-gray-300 text-center w-10">RU<br/><span className="text-[7px]">+3</span></th>
               {weekDaysCache.map((day, idx) => (
-                <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"}`}>
-                  <div className="font-bold text-center">{format(day, "d LLL", { locale: ruLocale })}</div>
-                  <div className="text-center">{format(day, "EEE", { locale: ruLocale })}</div>
+                <th key={idx} className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-100" : "bg-red-100"} text-[9px]`}>
+                  <div>{format(day, "d LLL", { locale: ruLocale })}</div>
+                  <div>{format(day, "EEE", { locale: ruLocale })}</div>
                 </th>
               ))}
             </tr>
@@ -320,37 +324,29 @@ export default function TrainerCalendar() {
           <tbody>
             {HOURS.map((h) => (
               <tr key={h}>
-                <td className="border px-1 py-0.5 text-center align-top bg-yellow-100 sticky left-0 z-20 w-20">
-                  {formatHourForTH(h)}
-                </td>
-                <td className="border px-1 py-0.5 text-center align-top bg-gray-100 sticky left-20 z-10 w-20">
-                  {formatHourForRU(h)}
-                </td>
+                <td className="border text-center bg-yellow-100 w-10">{formatHourForTH(h)}</td>
+                <td className="border text-center bg-gray-100 w-10">{formatHourForRU(h)}</td>
                 {weekDaysCache.map((day, idx) => {
                   const items = bookingsForDayHour(day, h);
                   const isBooked = items.length > 0;
                   return (
                     <td
                       key={idx}
-                      onClick={() => {
-                        if (!isBooked) openBookingModal(day, h);
-                      }}
-                      className={`border align-top px-1 py-0.5 cursor-pointer ${
-                        idx >= 5 ? "bg-orange-50" : ""
-                      } ${isBooked ? "bg-blue-200" : ""}`}
+                      onClick={() => !isBooked && openBookingModal(day, h)}
+                      className={`border cursor-pointer text-[9px] h-7 ${idx >= 5 ? "bg-orange-50" : ""} ${isBooked ? "bg-blue-200" : ""}`}
                     >
-                      <div className="flex flex-col gap-1 h-8">
+                      <div className="flex flex-col gap-0.5 h-6">
                         {items.map((b) => (
                           <div
                             key={b.id}
-                            className="relative rounded px-1 flex items-center justify-center cursor-pointer h-6 overflow-hidden"
+                            className="relative rounded px-1 flex items-center justify-center cursor-pointer h-5 overflow-hidden"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedBooking(selectedBooking === b.id ? null : b.id);
                             }}
                           >
                             <div className="w-full">
-                              <AutoFitText text={`${b.clientName} - ${b.sessionNumber}`} className="block" min={9} max={12} />
+                              <AutoFitText text={`${b.clientName}-${b.sessionNumber}`} className="block" min={7} max={10} />
                             </div>
                             {selectedBooking === b.id && (
                               <button
@@ -359,16 +355,15 @@ export default function TrainerCalendar() {
                                   e.stopPropagation();
                                   requestDeleteBooking(b.id);
                                 }}
-                                className="absolute top-0 right-0 p-1 text-red-500 text-xs opacity-40 hover:opacity-100"
+                                className="absolute top-0 right-0 p-0.5 text-red-500 text-[9px] opacity-40 hover:opacity-100"
                               >
                                 ✕
                               </button>
                             )}
                           </div>
                         ))}
-
                         {!isBooked && (
-                          <div className="h-6 flex items-center justify-center">
+                          <div className="h-5 flex items-center justify-center">
                             <AddIconButton onClick={() => openBookingModal(day, h)} />
                           </div>
                         )}
@@ -382,49 +377,50 @@ export default function TrainerCalendar() {
         </table>
       </div>
 
-      {/* Панель клиентов внизу */}
-      <div className="mt-6 p-4 border rounded bg-gray-50">
+      {/* панель клиентов */}
+      <div className="mt-4 p-2 border rounded bg-gray-50 text-[11px]">
         <div className="flex justify-between items-start">
-          <h2 className="font-semibold">Прогресс клиентов</h2>
-          <button onClick={() => openPackageModalFor("")} className="text-green-600 text-xs">+ пакет</button>
+          <h2 className="font-semibold">Клиенты</h2>
+          <button onClick={() => openPackageModalFor("")} className="text-green-600 text-[11px]">+ пакет</button>
         </div>
 
-        <div className="mt-3 space-y-3">
-          {clientNames().length === 0 && <div className="text-sm text-gray-500">Нет данных</div>}
+        <div className="mt-2 space-y-2">
+          {clientNames().length === 0 && <div className="text-gray-500">Нет данных</div>}
           {clientNames().map((name) => {
             const pkgList = packages[name] || [];
             const totalUsed = pkgList.reduce((s, p) => s + (p.used || 0), 0);
             const totalSize = pkgList.reduce((s, p) => s + (p.size || 0), 0);
             return (
-              <div key={name} className="border rounded p-2 bg-white">
+              <div key={name} className="border rounded p-1 bg-white">
                 <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2 cursor-pointer" onClick={() => toggleClientExpand(name)}>
+                  <div className="flex items-center gap-1 cursor-pointer" onClick={() => toggleClientExpand(name)}>
                     <div className="font-semibold">{name}</div>
-                    <div className="text-xs text-gray-600">{`${totalUsed}/${totalSize}`}</div>
+                    <div className="text-gray-600 text-[10px]">{`${totalUsed}/${totalSize}`}</div>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openPackageModalFor(name)} className="text-green-600 text-xs">+ пакет</button>
-                    <button onClick={() => requestRemoveClient(name)} className="text-red-500 text-xs">✕</button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openPackageModalFor(name)} className="text-green-600 text-[10px]">+ пакет</button>
+                    <button onClick={() => requestRemoveClient(name)} className="text-red-500 text-[10px]">✕</button>
                   </div>
                 </div>
 
                 {expandedClients[name] && (
-                  <div className="mt-2 ml-4">
+                  <div className="mt-1 ml-2">
                     {pkgList.map((p) => (
-                      <div key={p.id} className="mb-1">
+                      <div key={p.id} className="mb-0.5">
                         <div
                           className="flex justify-between items-center cursor-pointer"
                           onClick={() => togglePackageExpand(p.id)}
                         >
-                          <div className="text-xs text-gray-700">{`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}</div>
+                          <div className="text-gray-700 text-[10px]">
+                            {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
+                          </div>
                           {(p.used || 0) >= p.size && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 requestRemovePackage(name, p.id);
                               }}
-                              className="text-red-500 text-xs"
+                              className="text-red-500 text-[10px]"
                             >
                               ✕
                             </button>
@@ -432,7 +428,7 @@ export default function TrainerCalendar() {
                         </div>
 
                         {expandedPackages[p.id] && (
-                          <ul className="text-[11px] text-gray-600 ml-4 mt-1 list-disc">
+                          <ul className="text-[10px] text-gray-600 ml-3 mt-1 list-disc">
                             {bookingsForPackage(p.id, name).length === 0 && <li>Нет записей</li>}
                             {bookingsForPackage(p.id, name).map((b) => (
                               <li key={b.id}>
@@ -454,18 +450,18 @@ export default function TrainerCalendar() {
       {/* Модал добавления записи */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModalOpen(false)}>
-          <div className="bg-white p-4 rounded w-80" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold mb-2">Добавить запись</h3>
-            <p className="text-sm mb-2">{modalDate && format(modalDate, "d LLL (EEE)", { locale: ruLocale })} — {formatHourForTH(modalHour)} (TH) / {formatHourForRU(modalHour)} (RU)</p>
+          <div className="bg-white p-3 rounded w-72" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-2 text-sm">Добавить запись</h3>
+            <p className="text-[11px] mb-2">{modalDate && format(modalDate, "d LLL (EEE)", { locale: ruLocale })} — {formatHourForTH(modalHour)} (TH) / {formatHourForRU(modalHour)} (RU)</p>
 
-            <select value={modalClient} onChange={(e) => setModalClient(e.target.value)} className="border w-full px-2 py-1 rounded mb-3">
+            <select value={modalClient} onChange={(e) => setModalClient(e.target.value)} className="border w-full px-2 py-1 rounded mb-3 text-[11px]">
               <option value="">Выберите клиента</option>
               {[...clientNames()].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
 
             <div className="flex gap-2">
-              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded">Сохранить</button>
-              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded">Отмена</button>
+              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
+              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
             </div>
           </div>
         </div>
@@ -474,21 +470,22 @@ export default function TrainerCalendar() {
       {/* Модал добавления пакета */}
       {packageModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPackageModalOpen(false)}>
-          <div className="bg-white p-4 rounded w-80" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold mb-2">Добавить пакет</h3>
-            <input type="text" value={packageClient} onChange={(e) => setPackageClient(e.target.value)} placeholder="Имя клиента" className="border w-full px-2 py-1 rounded mb-3" />
-            <select value={packageSize} onChange={(e) => setPackageSize(Number(e.target.value))} className="border w-full px-2 py-1 rounded mb-3">
+          <div className="bg-white p-3 rounded w-72" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold mb-2 text-sm">Добавить пакет</h3>
+            <input type="text" value={packageClient} onChange={(e) => setPackageClient(e.target.value)} placeholder="Имя клиента" className="border w-full px-2 py-1 rounded mb-2 text-[11px]" />
+            <select value={packageSize} onChange={(e) => setPackageSize(Number(e.target.value))} className="border w-full px-2 py-1 rounded mb-3 text-[11px]">
               <option value={10}>Пакет 10</option>
               <option value={20}>Пакет 20</option>
             </select>
             <div className="flex gap-2">
-              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded">Сохранить</button>
-              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded">Отмена</button>
+              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
+              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Подтверждение */}
       <ConfirmModal
         open={confirmState.open}
         title={confirmState.title}
@@ -498,4 +495,3 @@ export default function TrainerCalendar() {
     </div>
   );
 }
-

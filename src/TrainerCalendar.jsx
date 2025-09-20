@@ -408,8 +408,84 @@ export default function TrainerCalendar() {
 
         <div className="mt-2 space-y-2">
           {clientNames().length === 0 && <div className="text-xs text-gray-500">Нет данных</div>}
-          {clientNames().map((name) => {
-            const pkgList = packages[name] || [];
-            const totalUsed = pkgList.reduce((s, p) => s + (p.used || 0), 0);
-            const totalSize = pkgList.reduce((s, p) => s + (p.size || 0), 0);
-            return (
+         {clientNames().map((name) => {
+  const pkgList = packages[name] || [];
+  const totalUsed = pkgList.reduce((s, p) => s + (p.used || 0), 0);
+  const totalSize = pkgList.reduce((s, p) => s + (p.size || 0), 0);
+
+  return (
+    <div key={name} className="border rounded p-2 bg-white">
+      <div className="flex justify-between items-center">
+        <div
+          className="flex items-center gap-2 cursor-pointer"
+          onClick={() => toggleClientExpand(name)}
+        >
+          <div className="font-semibold">{name}</div>
+          <div className="text-xs text-gray-600">
+            {`${totalUsed}/${totalSize}`}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => openPackageModalFor(name)}
+            className="text-green-600 text-xs"
+          >
+            + пакет
+          </button>
+          <button
+            onClick={() => requestRemoveClient(name)}
+            className="text-red-500 text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Разворот списка пакетов клиента */}
+      {expandedClients[name] && (
+        <div className="mt-2 ml-4">
+          {pkgList.map((p) => (
+            <div key={p.id} className="mb-1">
+              <div
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => togglePackageExpand(p.id)}
+              >
+                <div className="text-xs text-gray-700">
+                  {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
+                </div>
+                {(p.used || 0) >= p.size && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      requestRemovePackage(name, p.id);
+                    }}
+                    className="text-red-500 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {expandedPackages[p.id] && (
+                <ul className="text-[11px] text-gray-600 ml-4 mt-1 list-disc">
+                  {bookingsForPackage(p.id, name).length === 0 && (
+                    <li>Нет записей</li>
+                  )}
+                  {bookingsForPackage(p.id, name).map((b) => (
+                    <li key={b.id}>
+                      {b.sessionNumber} / {p.size} —{" "}
+                      {format(parseISO(b.dateISO), "d LLL", {
+                        locale: ruLocale,
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+})}

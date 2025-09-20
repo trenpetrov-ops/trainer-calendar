@@ -104,7 +104,7 @@ export default function TrainerCalendar() {
     const start = startOfWeekFor(baseDate);
     return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
   }
-  const HOURS = Array.from({ length: 15 }).map((_, i) => 7 + i); // 7..21
+  const HOURS = Array.from({ length: 15 }).map((_, i) => 9 + i); // 7..21
 
   function formatHourForTH(hour) {
     return `${String(hour).padStart(2, "0")}:00`;

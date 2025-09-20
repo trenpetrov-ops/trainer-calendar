@@ -284,7 +284,7 @@ export default function TrainerCalendar() {
           e.stopPropagation();
           onClick && onClick();
         }}
-        className="w-full h-5 flex items-center justify-center text-green-600 text-lg leading-none"
+        className="w-full h-6 flex items-center justify-center text-green-600 text-xl leading-none opacity-0 hover:opacity-100 transition"
       >
         +
       </button>
@@ -355,7 +355,7 @@ export default function TrainerCalendar() {
                                   e.stopPropagation();
                                   requestDeleteBooking(b.id);
                                 }}
-                                className="absolute top-0 right-0 p-0.5 text-red-500 text-[9px] opacity-0 hover:opacity-100"
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-red-500 text-xs opacity-40 hover:opacity-100"
                               >
                                 ✕
                               </button>

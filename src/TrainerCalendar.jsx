@@ -130,34 +130,36 @@ export default function TrainerCalendar() {
     }
 
     // ---- Добавление брони ----
-    async function addBooking() {
-        const name = modalClient?.trim();
-        if (!name) return alert("Выберите клиента.");
+async function addBooking() {
+    const name = modalClient?.trim();
+    if (!name) return alert("Выберите клиента.");
 
-        const pkgList = packages.filter((p) => p.clientName === name);
-        const targetPkg = pkgList.find((p) => p.used < p.size);
-        if (!targetPkg) return alert("У клиента нет доступных пакетов.");
+    const pkgList = packages.filter((p) => p.clientName === name);
+    const targetPkg = pkgList.find((p) => p.used < p.size);
+    if (!targetPkg) return alert("У клиента нет доступных пакетов.");
 
-        const dateISO = modalDate.toISOString().slice(0, 10);
-        const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);
-        if (exists) return alert("На это время уже есть запись.");
+-   const dateISO = modalDate.toISOString().slice(0, 10);
++   const dateISO = format(modalDate, "yyyy-MM-dd");
 
-        const sessionNumber = (targetPkg.used || 0) + 1;
+    const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);
+    if (exists) return alert("На это время уже есть запись.");
 
-        await addDoc(collection(db, "bookings"), {
-            clientName: name,
-            dateISO,
-            hour: modalHour,
-            packageId: targetPkg.id,
-            sessionNumber
-        });
+    const sessionNumber = (targetPkg.used || 0) + 1;
 
-        await updateDoc(doc(db, "packages", targetPkg.id), {
-            used: sessionNumber
-        });
+    await addDoc(collection(db, "bookings"), {
+        clientName: name,
+        dateISO,
+        hour: modalHour,
+        packageId: targetPkg.id,
+        sessionNumber
+    });
 
-        setModalOpen(false);
-    }
+    await updateDoc(doc(db, "packages", targetPkg.id), {
+        used: sessionNumber
+    });
+
+    setModalOpen(false);
+}
 
     // ---- Удаление брони ----
     async function requestDeleteBooking(id) {

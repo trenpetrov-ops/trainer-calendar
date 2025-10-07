@@ -138,7 +138,6 @@ async function addBooking() {
     const targetPkg = pkgList.find((p) => p.used < p.size);
     if (!targetPkg) return alert("У клиента нет доступных пакетов.");
 
-const dateISO = modalDate.toISOString().slice(0, 10);
 const dateISO = format(modalDate, "yyyy-MM-dd");
 
     const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);

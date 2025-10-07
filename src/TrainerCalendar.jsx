@@ -124,10 +124,11 @@ export default function TrainerCalendar() {
     function activeClients() {
         return clientNames().filter((n) => packages.some((p) => p.clientName === n && p.used < p.size));
     }
-    function bookingsForDayHour(date, hour) {
-        const dateISO = date.toISOString().slice(0, 10);
-        return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
-    }
+    
+function bookingsForDayHour(date, hour) {
+    const dateISO = format(date, "yyyy-MM-dd"); // локальное форматирование, без UTC
+    return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
+}
 
     // ---- Добавление брони ----
 async function addBooking() {

@@ -90,6 +90,10 @@ export default function TrainerCalendar() {
     const touchEndX = useRef(null);
     const [swipeDirection, setSwipeDirection] = useState(null); // "left" | "right"
     const [isAnimating, setIsAnimating] = useState(false);
+    const [dragX, setDragX] = useState(0);
+const [isDragging, setIsDragging] = useState(false);
+const [animating, setAnimating] = useState(false);
+const touchStartX = useRef(0);
     
     // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
     useEffect(() => {
@@ -152,37 +156,38 @@ function bookingsForDayHour(date, hour) {
 
 // ---- свап ----
 function handleTouchStart(e) {
+  if (animating) return;
   touchStartX.current = e.touches[0].clientX;
+  setIsDragging(true);
 }
 
 function handleTouchMove(e) {
-  touchEndX.current = e.touches[0].clientX;
+  if (!isDragging || animating) return;
+  const delta = e.touches[0].clientX - touchStartX.current;
+  setDragX(delta);
 }
 
 function handleTouchEnd() {
-  if (!touchStartX.current || !touchEndX.current) return;
-  const deltaX = touchEndX.current - touchStartX.current;
-  const threshold = 50;
+  if (!isDragging || animating) return;
+  setIsDragging(false);
 
-  if (Math.abs(deltaX) > threshold && !isAnimating) {
-    const direction = deltaX < 0 ? "left" : "right";
-    setSwipeDirection(direction);
-    setIsAnimating(true);
+  const threshold = 60; // порог свайпа (в пикселях)
+  const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
 
-    // после короткой анимации — смена недели
+  if (direction) {
+    setAnimating(true);
+    // Анимация завершения слайда
+    setDragX(direction === "left" ? -window.innerWidth : window.innerWidth);
     setTimeout(() => {
-      if (direction === "left") {
-        setAnchorDate((prev) => addWeeks(prev, 1));
-      } else {
-        setAnchorDate((prev) => subWeeks(prev, 1));
-      }
-      setSwipeDirection(null);
-      setIsAnimating(false);
-    }, 200); // длительность анимации (мс)
+      if (direction === "left") setAnchorDate((prev) => addWeeks(prev, 1));
+      else setAnchorDate((prev) => subWeeks(prev, 1));
+      setDragX(0);
+      setAnimating(false);
+    }, 250);
+  } else {
+    // Возвращаем на место
+    setDragX(0);
   }
-
-  touchStartX.current = null;
-  touchEndX.current = null;
 }
 
 // ---- Добавление брони ----
@@ -372,19 +377,16 @@ async function savePackage() {
 
             {/* таблица */}
             <div
-  className="overflow-x-hidden select-none relative"
+  className="overflow-hidden select-none relative touch-pan-y"
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
 >
   <div
-    className={`transition-transform duration-300 ease-out ${
-      swipeDirection === "left"
-        ? "-translate-x-full opacity-50"
-        : swipeDirection === "right"
-        ? "translate-x-full opacity-50"
-        : "translate-x-0 opacity-100"
-    }`}
+    className={`transition-transform ${animating ? "duration-300 ease-in-out" : ""}`}
+    style={{
+      transform: `translateX(${dragX}px)`,
+    }}
   >
     <table className="border-collapse w-full text-[7px] table-fixed">
                     <thead>

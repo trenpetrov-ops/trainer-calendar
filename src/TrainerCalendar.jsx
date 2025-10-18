@@ -86,6 +86,9 @@ export default function TrainerCalendar() {
     const [expandedPackages, setExpandedPackages] = useState({});
     const [confirmState, setConfirmState] = useState({ open: false, title: "", onConfirm: null });
 
+    const touchStartX = useRef(null);
+    const touchEndX = useRef(null);
+    
     // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
     useEffect(() => {
         const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
@@ -144,6 +147,37 @@ function bookingsForDayHour(date, hour) {
     const dateISO = format(date, "yyyy-MM-dd"); // локальное форматирование, без UTC
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
 }
+
+// ---- свап ----
+function handleTouchStart(e) {
+  touchStartX.current = e.touches[0].clientX;
+}
+
+function handleTouchMove(e) {
+  touchEndX.current = e.touches[0].clientX;
+}
+
+function handleTouchEnd() {
+  if (!touchStartX.current || !touchEndX.current) return;
+  const deltaX = touchEndX.current - touchStartX.current;
+
+  // порог, чтобы случайные движения не срабатывали
+  const threshold = 50;
+
+  if (Math.abs(deltaX) > threshold) {
+    if (deltaX < 0) {
+      // свайп влево → следующая неделя
+      setAnchorDate(addWeeks(anchorDate, 1));
+    } else {
+      // свайп вправо → предыдущая неделя
+      setAnchorDate(subWeeks(anchorDate, 1));
+    }
+  }
+
+  touchStartX.current = null;
+  touchEndX.current = null;
+}
+
 
 // ---- Добавление брони ----
 async function addBooking() {
@@ -331,8 +365,13 @@ async function savePackage() {
             </header>
 
             {/* таблица */}
-            <div className="overflow-x-hidden">
-                <table className="border-collapse w-full text-[7px] table-fixed">
+            <div
+  className="overflow-x-hidden select-none"
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+>
+                <table className="border-collapse w-full text-[7px] table-fixed transition-opacity duration-200">
                     <thead>
                     <tr>
                         <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">

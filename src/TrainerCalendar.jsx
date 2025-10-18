@@ -118,12 +118,27 @@ export default function TrainerCalendar() {
         return `${String(ruHour).padStart(2, "0")}:00`;
     }
 
-    function clientNames() {
-        return [...new Set(packages.map(p => p.clientName))];
+    // Возвращает список всех имён клиентов (включая из общих пакетов)
+function clientNames() {
+    const all = [];
+    for (const p of packages) {
+        if (p.clientName) all.push(p.clientName);
+        if (Array.isArray(p.clientNames)) all.push(...p.clientNames);
     }
+    return [...new Set(all)];
+}
+
     function activeClients() {
-        return clientNames().filter((n) => packages.some((p) => p.clientName === n && p.used < p.size));
-    }
+    return clientNames().filter((n) =>
+        packages.some(
+            (p) =>
+                (p.clientName === n || (Array.isArray(p.clientNames) && p.clientNames.includes(n))) &&
+                p.used < p.size
+        )
+    );
+}
+
+
     
 function bookingsForDayHour(date, hour) {
     const dateISO = format(date, "yyyy-MM-dd"); // локальное форматирование, без UTC
@@ -135,8 +150,12 @@ async function addBooking() {
     const name = modalClient?.trim();
     if (!name) return alert("Выберите клиента.");
 
-    const pkgList = packages.filter((p) => p.clientName === name);
-    const targetPkg = pkgList.find((p) => p.used < p.size);
+    // ищем пакет, принадлежащий клиенту (в том числе общий)
+const pkgList = packages.filter(
+    (p) => p.clientName === name || (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+);
+const targetPkg = pkgList.find((p) => p.used < p.size);
+    
     if (!targetPkg) return alert("У клиента нет доступных пакетов.");
 
 const dateISO = format(modalDate, "yyyy-MM-dd");
@@ -185,19 +204,31 @@ const dateISO = format(modalDate, "yyyy-MM-dd");
     }
 
     // ---- Добавление пакета ----
-    async function savePackage() {
-        const name = (packageClient || "").trim();
-        if (!name) return alert("Введите имя клиента.");
+async function savePackage() {
+    const raw = (packageClient || "").trim();
+    if (!raw) return alert("Введите имя клиента (или несколько через запятую).");
 
-        await addDoc(collection(db, "packages"), {
-            clientName: name,
-            size: Number(packageSize || 10),
-            used: 0,
-            addedISO: new Date().toISOString().slice(0, 10)
-        });
+    // Позволяем вводить несколько клиентов через запятую
+    const names = raw.split(",").map(n => n.trim()).filter(Boolean);
+    if (names.length === 0) return alert("Введите хотя бы одно имя.");
 
-        setPackageModalOpen(false);
+    const data = {
+        size: Number(packageSize || 10),
+        used: 0,
+        addedISO: new Date().toISOString().slice(0, 10)
+    };
+
+    // Если один клиент — сохраняем старую схему для совместимости
+    if (names.length === 1) {
+        data.clientName = names[0];
+    } else {
+        data.clientNames = names;
     }
+
+    await addDoc(collection(db, "packages"), data);
+
+    setPackageModalOpen(false);
+}
 
     // ---- Удаление пакета ----
     async function requestRemovePackage(clientName, packageId) {
@@ -369,6 +400,12 @@ const dateISO = format(modalDate, "yyyy-MM-dd");
                                             <div key={p.id} className="mb-0.5">
                                                 <div className="flex justify-between items-center cursor-pointer" onClick={() => togglePackageExpand(p.id)}>
                                                     <div className="text-gray-700 text-[10px]">{`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}</div>
+                                                    {p.clientNames && p.clientNames.length > 1 && (
+    <div className="text-gray-500 text-[9px] italic">
+        Общий пакет для: {p.clientNames.join(", ")}
+    </div>
+)}
+                                                    
                                                     {(p.used || 0) >= p.size && (
                                                         <button onClick={(e) => { e.stopPropagation(); requestRemovePackage(name, p.id); }} className="text-red-500 text-[10px]">✕</button>
                                                     )}
@@ -414,7 +451,7 @@ const dateISO = format(modalDate, "yyyy-MM-dd");
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPackageModalOpen(false)}>
                     <div className="bg-white p-3 rounded w-72" onClick={(e) => e.stopPropagation()}>
                         <h3 className="font-semibold mb-2 text-sm">Добавить пакет</h3>
-                        <input type="text" value={packageClient} onChange={(e) => setPackageClient(e.target.value)} placeholder="Имя клиента" className="border w-full px-2 py-1 rounded mb-2 text-[11px]" />
+                        <input type="text" value={packageClient} onChange={(e) => setPackageClient(e.target.value)} placeholder="Имя клиента (можно несколько через запятую)" className="border w-full px-2 py-1 rounded mb-2 text-[11px]" />
                         <select value={packageSize} onChange={(e) => setPackageSize(Number(e.target.value))} className="border w-full px-2 py-1 rounded mb-3 text-[11px]">
                             <option value={1}>1 трен.</option>
                             <option value={5}>5 трен.</option>

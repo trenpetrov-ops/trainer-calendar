@@ -87,9 +87,9 @@ export default function TrainerCalendar() {
     const [confirmState, setConfirmState] = useState({ open: false, title: "", onConfirm: null });
 
     
-    const touchEndX = useRef(null);
-    const [swipeDirection, setSwipeDirection] = useState(null); // "left" | "right"
-    const [isAnimating, setIsAnimating] = useState(false);
+    
+    
+    
     const [dragX, setDragX] = useState(0);
 const [isDragging, setIsDragging] = useState(false);
 const [animating, setAnimating] = useState(false);

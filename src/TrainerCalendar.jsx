@@ -372,128 +372,135 @@ async function savePackage() {
                 </table>
             </div>
 
-      {/* панель клиентов */}
+{/* панель клиентов */}
 <div className="mt-4 p-2 border rounded bg-gray-50 text-[12px]">
-    <div className="flex justify-between items-start">
-        <button
-            onClick={() => setPackageModalOpen(true)}
-            className="font-semibold text-green-600 text-[20px]"
-        >
-            +
-        </button>
-    </div>
+  <div className="flex justify-between items-start">
+    <button
+      onClick={() => setPackageModalOpen(true)}
+      className="font-semibold text-green-600 text-[20px]"
+    >
+      +
+    </button>
+  </div>
 
-    <div className="mt-2 space-y-2">
-        {clientNames().length === 0 && (
-            <div className="text-gray-500">Нет данных</div>
-        )}
+  <div className="mt-2 space-y-2">
+    {clientNames().length === 0 && <div className="text-gray-500">Нет данных</div>}
+    {clientNames().map((name) => {
+      // Находим все пакеты, где клиент участвует (в том числе в общих)
+      const pkgList = packages.filter(
+        (p) =>
+          p.clientName === name ||
+          (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+      );
 
-        {clientNames().map((name) => {
-            // 🔹 Находим все пакеты, где клиент либо один, либо в составе общего пакета
-            const pkgList = packages.filter(
-                (p) =>
-                    p.clientName === name ||
-                    (Array.isArray(p.clientNames) && p.clientNames.includes(name))
-            );
+      const activePkg = pkgList.find((p) => p.used < p.size);
 
-            // 🔹 Определяем, есть ли активный (незавершённый) пакет
-            const activePkg = pkgList.find((p) => p.used < p.size);
+      // Проверяем, есть ли общий пакет, где этот клиент — НЕ первый
+      const sharedPkg = pkgList.find(
+        (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
+      );
+      const isSecondaryInShared =
+        sharedPkg && sharedPkg.clientNames[0] !== name;
 
-            return (
-                <div key={name} className="border rounded p-1 bg-white">
-                    <div className="flex justify-between items-center">
-                        <div
-                            className="flex items-center gap-1 cursor-pointer"
-                            onClick={() => toggleClientExpand(name)}
-                        >
-                            <div className="font-semibold">{name}</div>
-                            <div className="text-gray-600 text-[10px]">
-                                {activePkg
-                                    ? `${activePkg.used}/${activePkg.size}`
-                                    : "✓ завершено"}
-                            </div>
-                        </div>
+      return (
+        <div key={name} className="border rounded p-1 bg-white">
+          <div className="flex justify-between items-center">
+            <div
+              className="flex items-center gap-1 cursor-pointer"
+              onClick={() => toggleClientExpand(name)}
+            >
+              <div className="font-semibold">{name}</div>
+              <div className="text-gray-600 text-[10px]">
+                {activePkg
+                  ? `${activePkg.used}/${activePkg.size}`
+                  : "✓ завершено"}
+              </div>
+            </div>
 
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => {
-                                    setPackageClient(name);
-                                    setPackageSize(10);
-                                    setPackageModalOpen(true);
-                                }}
-                                className="font-semibold text-green-600 text-[11px]"
-                            >
-                                + пакет
-                            </button>
-                            <button
-                                onClick={() => requestRemoveClient(name)}
-                                className="text-red-500 text-[10px]"
-                            >
-                                удалить
-                            </button>
-                        </div>
+            <div className="flex items-center gap-3">
+              {/* Показываем + пакет только если клиент не второстепенный в общем */}
+              {!isSecondaryInShared && (
+                <button
+                  onClick={() => {
+                    // Если есть общий пакет — добавляем для всех имён
+                    if (sharedPkg && Array.isArray(sharedPkg.clientNames)) {
+                      setPackageClient(sharedPkg.clientNames.join(", "));
+                    } else {
+                      setPackageClient(name);
+                    }
+                    setPackageSize(10);
+                    setPackageModalOpen(true);
+                  }}
+                  className="font-semibold text-green-600 text-[11px]"
+                >
+                  + пакет
+                </button>
+              )}
+              <button
+                onClick={() => requestRemoveClient(name)}
+                className="text-red-500 text-[10px]"
+              >
+                удалить
+              </button>
+            </div>
+          </div>
+
+          {/* Раскрытие списка пакетов */}
+          {expandedClients[name] && (
+            <div className="mt-1 ml-2">
+              {pkgList.map((p) => (
+                <div key={p.id} className="mb-0.5">
+                  <div
+                    className="flex justify-between items-center cursor-pointer"
+                    onClick={() => togglePackageExpand(p.id)}
+                  >
+                    <div className="text-gray-700 text-[10px]">
+                      {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
                     </div>
 
-                    {/* 🔹 Раскрытие списка пакетов */}
-                    {expandedClients[name] && (
-                        <div className="mt-1 ml-2">
-                            {pkgList.map((p) => (
-                                <div key={p.id} className="mb-0.5">
-                                    <div
-                                        className="flex justify-between items-center cursor-pointer"
-                                        onClick={() => togglePackageExpand(p.id)}
-                                    >
-                                        <div className="text-gray-700 text-[10px]">
-                                            {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
-                                        </div>
-
-                                        {/* 🔸 Отображаем, если пакет общий */}
-                                        {p.clientNames && p.clientNames.length > 1 && (
-                                            <div className="text-gray-500 text-[9px] italic">
-                                                Общий пакет для: {p.clientNames.join(", ")}
-                                            </div>
-                                        )}
-
-                                        {/* 🔸 Кнопка удаления только для завершённых пакетов */}
-                                        {(p.used || 0) >= p.size && (
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    requestRemovePackage(name, p.id);
-                                                }}
-                                                className="text-red-500 text-[10px]"
-                                            >
-                                                ✕
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* 🔸 Раскрытие тренировок внутри пакета */}
-                                    {expandedPackages[p.id] && (
-                                        <ul className="text-[10px] text-gray-600 ml-3 mt-1 list-disc">
-                                            {bookingsForPackage(p.id, name).length === 0 && (
-                                                <li>Нет записей</li>
-                                            )}
-                                            {bookingsForPackage(p.id, name).map((b) => (
-                                                <li key={b.id}>
-                                                    {b.sessionNumber} / {p.size} —{" "}
-                                                    {format(parseISO(b.dateISO), "d LLL", {
-                                                        locale: ru,
-                                                    })}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
+                    {p.clientNames && p.clientNames.length > 1 && (
+                      <div className="text-gray-500 text-[9px] italic">
+                        Общий пакет для: {p.clientNames.join(", ")}
+                      </div>
                     )}
+
+                    {(p.used || 0) >= p.size && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestRemovePackage(name, p.id);
+                        }}
+                        className="text-red-500 text-[10px]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {expandedPackages[p.id] && (
+                    <ul className="text-[10px] text-gray-600 ml-3 mt-1 list-disc">
+                      {bookingsForPackage(p.id, name).length === 0 && (
+                        <li>Нет записей</li>
+                      )}
+                      {bookingsForPackage(p.id, name).map((b) => (
+                        <li key={b.id}>
+                          {b.sessionNumber} / {p.size} —{" "}
+                          {format(parseISO(b.dateISO), "d LLL", { locale: ru })}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-            );
-        })}
-    </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
 </div>
-            
+        
+                          
             {/* модал добавления записи */}
             {modalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModalOpen(false)}>

@@ -88,6 +88,8 @@ export default function TrainerCalendar() {
 
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
+    const [swipeDirection, setSwipeDirection] = useState(null); // "left" | "right"
+    const [isAnimating, setIsAnimating] = useState(false);
     
     // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
     useEffect(() => {
@@ -160,24 +162,28 @@ function handleTouchMove(e) {
 function handleTouchEnd() {
   if (!touchStartX.current || !touchEndX.current) return;
   const deltaX = touchEndX.current - touchStartX.current;
-
-  // порог, чтобы случайные движения не срабатывали
   const threshold = 50;
 
-  if (Math.abs(deltaX) > threshold) {
-    if (deltaX < 0) {
-      // свайп влево → следующая неделя
-      setAnchorDate(addWeeks(anchorDate, 1));
-    } else {
-      // свайп вправо → предыдущая неделя
-      setAnchorDate(subWeeks(anchorDate, 1));
-    }
+  if (Math.abs(deltaX) > threshold && !isAnimating) {
+    const direction = deltaX < 0 ? "left" : "right";
+    setSwipeDirection(direction);
+    setIsAnimating(true);
+
+    // после короткой анимации — смена недели
+    setTimeout(() => {
+      if (direction === "left") {
+        setAnchorDate((prev) => addWeeks(prev, 1));
+      } else {
+        setAnchorDate((prev) => subWeeks(prev, 1));
+      }
+      setSwipeDirection(null);
+      setIsAnimating(false);
+    }, 200); // длительность анимации (мс)
   }
 
   touchStartX.current = null;
   touchEndX.current = null;
 }
-
 
 // ---- Добавление брони ----
 async function addBooking() {
@@ -366,12 +372,21 @@ async function savePackage() {
 
             {/* таблица */}
             <div
-  className="overflow-x-hidden select-none"
+  className="overflow-x-hidden select-none relative"
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
 >
-                <table className="border-collapse w-full text-[7px] table-fixed transition-opacity duration-200">
+  <div
+    className={`transition-transform duration-300 ease-out ${
+      swipeDirection === "left"
+        ? "-translate-x-full opacity-50"
+        : swipeDirection === "right"
+        ? "translate-x-full opacity-50"
+        : "translate-x-0 opacity-100"
+    }`}
+  >
+    <table className="border-collapse w-full text-[7px] table-fixed">
                     <thead>
                     <tr>
                         <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">
@@ -455,6 +470,7 @@ async function savePackage() {
                     ))}
                     </tbody>
                 </table>
+            </div>
             </div>
 
 {/* панель клиентов */}

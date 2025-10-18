@@ -145,39 +145,71 @@ function bookingsForDayHour(date, hour) {
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
 }
 
-    // ---- Добавление брони ----
+// ---- Добавление брони ----
 async function addBooking() {
-    const name = modalClient?.trim();
-    if (!name) return alert("Выберите клиента.");
+  const name = modalClient?.trim();
+  if (!name) return alert("Выберите клиента.");
 
-    // ищем пакет, принадлежащий клиенту (в том числе общий)
-const pkgList = packages.filter(
-    (p) => p.clientName === name || (Array.isArray(p.clientNames) && p.clientNames.includes(name))
-);
-const targetPkg = pkgList.find((p) => p.used < p.size);
-    
-    if (!targetPkg) return alert("У клиента нет доступных пакетов.");
+  // 🔍 1. Находим все пакеты, где участвует этот клиент (в том числе общие)
+  let pkgList = packages.filter(
+    (p) =>
+      p.clientName === name ||
+      (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+  );
 
-const dateISO = format(modalDate, "yyyy-MM-dd");
+  if (pkgList.length === 0) {
+    return alert("У клиента нет доступных пакетов.");
+  }
 
-    const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);
-    if (exists) return alert("На это время уже есть запись.");
+  // 🔗 2. Проверяем, есть ли общий пакет
+  const sharedPkg = pkgList.find(
+    (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
+  );
 
-    const sessionNumber = (targetPkg.used || 0) + 1;
-
-    await addDoc(collection(db, "bookings"), {
-        clientName: name,
-        dateISO,
-        hour: modalHour,
-        packageId: targetPkg.id,
-        sessionNumber
+  // 🔁 Если есть общий пакет — ищем все пакеты с тем же составом участников
+  if (sharedPkg) {
+    const sharedNames = [...sharedPkg.clientNames].sort(); // сортируем для стабильности
+    pkgList = packages.filter((p) => {
+      if (!Array.isArray(p.clientNames)) return false;
+      const current = [...p.clientNames].sort();
+      return JSON.stringify(current) === JSON.stringify(sharedNames);
     });
+  }
 
-    await updateDoc(doc(db, "packages", targetPkg.id), {
-        used: sessionNumber
-    });
+  // 📅 3. Сортируем по дате добавления (от старых к новым)
+  pkgList = pkgList.sort((a, b) => {
+    const da = new Date(a.addedISO || 0);
+    const db = new Date(b.addedISO || 0);
+    return da - db;
+  });
 
-    setModalOpen(false);
+  // 🎯 4. Берём первый незавершённый пакет
+  const targetPkg = pkgList.find((p) => p.used < p.size);
+  if (!targetPkg) return alert("У клиента нет доступных пакетов.");
+
+  const dateISO = format(modalDate, "yyyy-MM-dd");
+  const exists = bookings.some(
+    (b) => b.dateISO === dateISO && b.hour === modalHour
+  );
+  if (exists) return alert("На это время уже есть запись.");
+
+  const sessionNumber = (targetPkg.used || 0) + 1;
+
+  // 💾 Добавляем запись
+  await addDoc(collection(db, "bookings"), {
+    clientName: name,
+    dateISO,
+    hour: modalHour,
+    packageId: targetPkg.id,
+    sessionNumber,
+  });
+
+  // 🔄 Обновляем счётчик
+  await updateDoc(doc(db, "packages", targetPkg.id), {
+    used: sessionNumber,
+  });
+
+  setModalOpen(false);
 }
 
     // ---- Удаление брони ----
@@ -310,21 +342,35 @@ async function savePackage() {
                             Рус<br/><span className="text-[7px]"></span>
                         </th>
                         {weekDaysCache.map((day, idx) => {
-                            const monthShort = format(day, "d MMM", { locale: ru })
-                                .replace(/\./g, "")
-                                .slice(0, 6)
-                                .replace(/\s+$/, "");
-                            const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-                            const weekday2 = ruShortByIndex[day.getDay()];
-                            return (
-                                <th key={idx}
-                                    className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-50" : "bg-red-100"} text-[9px]`}
-                                >
-                                    <div className="italic text-[7px] text-center">{monthShort}</div>
-                                    <div className="font-bold text-center text-[11px]">{weekday2}</div>
-                                </th>
-                            );
-                        })}
+    const monthShort = format(day, "d MMM", { locale: ru })
+        .replace(/\./g, "")
+        .slice(0, 6)
+        .replace(/\s+$/, "");
+    const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+    const weekday2 = ruShortByIndex[day.getDay()];
+
+    // 🔍 Проверяем, является ли день сегодняшним
+    const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+
+    return (
+        <th
+            key={idx}
+            className={`border px-1 py-0.5 text-[9px] transition 
+                ${
+                  isToday
+                    ? "bg-yellow-200 border-yellow-400 shadow-inner"
+                    : idx >= 5
+                    ? "bg-orange-50"
+                    : "bg-red-100"
+                }`}
+        >
+            <div className="italic text-[7px] text-center">{monthShort}</div>
+            <div className="font-bold text-center text-[11px]">
+                {weekday2} {isToday && <span className="text-yellow-700">*</span>}
+            </div>
+        </th>
+    );
+})}
                     </tr>
                     </thead>
                     <tbody>

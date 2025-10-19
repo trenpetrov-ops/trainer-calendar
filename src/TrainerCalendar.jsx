@@ -95,13 +95,7 @@ const [isDragging, setIsDragging] = useState(false);
 const [animating, setAnimating] = useState(false);
 const touchStartX = useRef(0);
     
-    const prevWeek = weekDays(subWeeks(anchorDate, 1));
-const thisWeek = weekDays(anchorDate);
-const nextWeek = weekDays(addWeeks(anchorDate, 1));
-
-// массив из трёх недель
-const visibleWeeks = [prevWeek, thisWeek, nextWeek];
-    
+       
     
     // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
     useEffect(() => {
@@ -395,156 +389,79 @@ async function savePackage() {
 
             {/* таблица */}
             
-            <div
-  className="overflow-hidden relative select-none touch-pan-y"
-  onTouchStart={handleTouchStart}
-  onTouchMove={handleTouchMove}
-  onTouchEnd={handleTouchEnd}
->
-  <div
-    className={`flex transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
-    style={{
-      transform: `translateX(calc(${dragX}px - 100%))`, // центрируем текущую неделю
-      width: "300%",
-      willChange: "transform",
-    }}
-  >
-    {visibleWeeks.map((days, idx) => (
-      <div key={idx} className="w-full shrink-0">
-        <table className="border-collapse w-full text-[7px]">
-  <colgroup>
-    {/* фиксированные колонки */}
-    <col style={{ width: "40px" }} />
-    <col style={{ width: "40px" }} />
-    {/* 7 равных колонок */}
-    {Array.from({ length: 7 }).map((_, i) => (
-      <col key={i} style={{ width: "calc((100% - 80px) / 7)" }} />
-    ))}
-  </colgroup>
-
-  <thead>
-    <tr>
-      <th className="border bg-yellow-100 text-center sticky left-0 z-30">
-        Тай<br />
-      </th>
-      <th className="border bg-gray-100 text-center sticky left-[40px] z-20">
-        Рус<br />
-      </th>
-
-      {weekDaysCache.slice(0, 7).map((day, idx) => {
-        const monthShort = format(day, "d MMM", { locale: ru })
-          .replace(/\./g, "")
-          .slice(0, 6)
-          .replace(/\s+$/, "");
-        const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-        const weekday2 = ruShortByIndex[day.getDay()];
-        const isToday =
-          format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-
-        return (
-          <th
-            key={idx}
-            className={`border px-1 py-0.5 text-[9px] transition text-center
-              ${
-                isToday
-                  ? "bg-yellow-200 border-yellow-400 shadow-inner"
-                  : idx >= 5
-                  ? "bg-orange-50"
-                  : "bg-red-100"
-              }`}
-          >
-            <div className="italic text-[7px]">{monthShort}</div>
-            <div className="font-bold text-[11px]">
-              {weekday2} {isToday && <span className="text-yellow-700">*</span>}
+          {/* таблица */}
+            <div className="overflow-x-hidden">
+                <table className="border-collapse w-full text-[7px] table-fixed">
+                    <thead>
+                    <tr>
+                        <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">
+                            Тай<br/><span className="text-[7px]"></span>
+                        </th>
+                        <th className="border px-1 py-0.5 bg-gray-100 text-center sticky left-6 z-20 w-6">
+                            Рус<br/><span className="text-[7px]"></span>
+                        </th>
+                        {weekDaysCache.map((day, idx) => {
+                            const monthShort = format(day, "d MMM", { locale: ru })
+                                .replace(/\./g, "")
+                                .slice(0, 6)
+                                .replace(/\s+$/, "");
+                            const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+                            const weekday2 = ruShortByIndex[day.getDay()];
+                            return (
+                                <th key={idx}
+                                    className={`border px-1 py-0.5 ${idx >= 5 ? "bg-orange-50" : "bg-red-100"} text-[9px]`}
+                                >
+                                    <div className="italic text-[7px] text-center">{monthShort}</div>
+                                    <div className="font-bold text-center text-[11px]">{weekday2}</div>
+                                </th>
+                            );
+                        })}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {HOURS.map((h) => (
+                        <tr key={h}>
+                            <td className="border text-center bg-yellow-100 w-6 text-[6px]">{formatHourForTH(h)}</td>
+                            <td className="border text-center bg-gray-100 w-6 text-[6px]">{formatHourForRU(h)}</td>
+                            {weekDaysCache.map((day, idx) => {
+                                const items = bookingsForDayHour(day, h);
+                                const isBooked = items.length > 0;
+                                return (
+                                    <td key={idx}
+                                        onClick={() => { if (!isBooked) { setModalDate(day); setModalHour(h); setModalClient(activeClients()[0] || ""); setModalOpen(true); } }}
+                                        className={`border align-top px-1 py-0.5 cursor-pointer 
+                        ${isBooked ? "bg-blue-200" : idx >= 5 ? "bg-orange-50" : "bg-white"}`}
+                                    >
+                                        <div className="flex flex-col gap-1 h-6">
+                                            {items.map((b) => (
+                                                <div key={b.id}
+                                                     className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
+                                                     onClick={(e) => { e.stopPropagation(); setSelectedBooking(selectedBooking === b.id ? null : b.id); }}
+                                                >
+                                                    <div className="flex items-center justify-center w-full h-full text-[7px]">
+                                                        <AutoFitText text={b.clientName} className="block" min={7} max={7} />
+                                                        <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">{b.sessionNumber}</div>
+                                                    </div>
+                                                    {selectedBooking === b.id && (
+                                                        <button
+                                                            title="Удалить"
+                                                            onClick={(e) => { e.stopPropagation(); requestDeleteBooking(b.id); }}
+                                                            className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
             </div>
-          </th>
-        );
-      })}
-    </tr>
-  </thead>
-
-  <tbody>
-    {HOURS.map((h) => (
-      <tr key={h}>
-        <td className="border text-center bg-yellow-100 text-[6px]">
-          {formatHourForTH(h)}
-        </td>
-        <td className="border text-center bg-gray-100 text-[6px]">
-          {formatHourForRU(h)}
-        </td>
-
-        {weekDaysCache.slice(0, 7).map((day, idx) => {
-          const items = bookingsForDayHour(day, h);
-          const isBooked = items.length > 0;
-          return (
-            <td
-              key={idx}
-              onClick={() => {
-                if (!isBooked) {
-                  setModalDate(day);
-                  setModalHour(h);
-                  setModalClient(activeClients()[0] || "");
-                  setModalOpen(true);
-                }
-              }}
-              className={`border align-top px-1 py-0.5 cursor-pointer 
-                ${
-                  isBooked
-                    ? "bg-blue-200"
-                    : idx >= 5
-                    ? "bg-orange-50"
-                    : "bg-white"
-                }`}
-            >
-              <div className="flex flex-col gap-1 h-6">
-                {items.map((b) => (
-                  <div
-                    key={b.id}
-                    className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedBooking(
-                        selectedBooking === b.id ? null : b.id
-                      );
-                    }}
-                  >
-                    <div className="flex items-center justify-center w-full h-full text-[7px]">
-                      <AutoFitText
-                        text={b.clientName}
-                        className="block"
-                        min={7}
-                        max={7}
-                      />
-                      <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">
-                        {b.sessionNumber}
-                      </div>
-                    </div>
-                    {selectedBooking === b.id && (
-                      <button
-                        title="Удалить"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestDeleteBooking(b.id);
-                        }}
-                        className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </td>
-          );
-        })}
-      </tr>
-    ))}
-  </tbody>
-</table>
-      </div>
-    ))}
-  </div>
-</div>
 
 {/* панель клиентов */}
 <div className="mt-4 p-2 border rounded bg-gray-50 text-[12px]">

@@ -411,33 +411,27 @@ async function savePackage() {
   >
     {visibleWeeks.map((days, idx) => (
       <div key={idx} className="w-full shrink-0">
-        <table className="border-collapse w-full text-[7px] table-fixed">
+        <table className="border-collapse w-full text-[7px]">
   <colgroup>
-    {/* Фиксированные ширины для Тай и Рус */}
-    <col style={{ width: "30px" }} />
-    <col style={{ width: "30px" }} />
-
-    {/* Остальные равные — зависят от количества дней */}
-    {weekDaysCache.map((_, i) => (
-      <col
-        key={i}
-        style={{
-          width: `calc((100% - 60px) / ${weekDaysCache.length})`,
-        }}
-      />
+    {/* фиксированные колонки */}
+    <col style={{ width: "40px" }} />
+    <col style={{ width: "40px" }} />
+    {/* 7 равных колонок */}
+    {Array.from({ length: 7 }).map((_, i) => (
+      <col key={i} style={{ width: "calc((100% - 80px) / 7)" }} />
     ))}
   </colgroup>
 
   <thead>
     <tr>
-      <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-[30px]">
-        Тай<br /><span className="text-[7px]"></span>
+      <th className="border bg-yellow-100 text-center sticky left-0 z-30">
+        Тай<br />
       </th>
-      <th className="border px-1 py-0.5 bg-gray-100 text-center sticky left-[30px] z-20 w-[30px]">
-        Рус<br /><span className="text-[7px]"></span>
+      <th className="border bg-gray-100 text-center sticky left-[40px] z-20">
+        Рус<br />
       </th>
 
-      {weekDaysCache.map((day, idx) => {
+      {weekDaysCache.slice(0, 7).map((day, idx) => {
         const monthShort = format(day, "d MMM", { locale: ru })
           .replace(/\./g, "")
           .slice(0, 6)
@@ -450,7 +444,7 @@ async function savePackage() {
         return (
           <th
             key={idx}
-            className={`border px-1 py-0.5 text-[9px] transition 
+            className={`border px-1 py-0.5 text-[9px] transition text-center
               ${
                 isToday
                   ? "bg-yellow-200 border-yellow-400 shadow-inner"
@@ -459,8 +453,8 @@ async function savePackage() {
                   : "bg-red-100"
               }`}
           >
-            <div className="italic text-[7px] text-center">{monthShort}</div>
-            <div className="font-bold text-center text-[11px]">
+            <div className="italic text-[7px]">{monthShort}</div>
+            <div className="font-bold text-[11px]">
               {weekday2} {isToday && <span className="text-yellow-700">*</span>}
             </div>
           </th>
@@ -468,49 +462,85 @@ async function savePackage() {
       })}
     </tr>
   </thead>
-                    <tbody>
-                    {HOURS.map((h) => (
-                        <tr key={h}>
-                            <td className="border text-center bg-yellow-100 w-6 text-[6px]">{formatHourForTH(h)}</td>
-                            <td className="border text-center bg-gray-100 w-6 text-[6px]">{formatHourForRU(h)}</td>
-                            {weekDaysCache.map((day, idx) => {
-                                const items = bookingsForDayHour(day, h);
-                                const isBooked = items.length > 0;
-                                return (
-                                    <td key={idx}
-                                        onClick={() => { if (!isBooked) { setModalDate(day); setModalHour(h); setModalClient(activeClients()[0] || ""); setModalOpen(true); } }}
-                                        className={`border align-top px-1 py-0.5 cursor-pointer 
-                        ${isBooked ? "bg-blue-200" : idx >= 5 ? "bg-orange-50" : "bg-white"}`}
-                                    >
-                                        <div className="flex flex-col gap-1 h-6">
-                                            {items.map((b) => (
-                                                <div key={b.id}
-                                                     className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
-                                                     onClick={(e) => { e.stopPropagation(); setSelectedBooking(selectedBooking === b.id ? null : b.id); }}
-                                                >
-                                                    <div className="flex items-center justify-center w-full h-full text-[7px]">
-                                                        <AutoFitText text={b.clientName} className="block" min={7} max={7} />
-                                                        <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">{b.sessionNumber}</div>
-                                                    </div>
-                                                    {selectedBooking === b.id && (
-                                                        <button
-                                                            title="Удалить"
-                                                            onClick={(e) => { e.stopPropagation(); requestDeleteBooking(b.id); }}
-                                                            className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
-                                                        >
-                                                            ✕
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </td>
-                                );
-                            })}
-                        </tr>
-                    ))}
-                    </tbody>
-                        </table>
+
+  <tbody>
+    {HOURS.map((h) => (
+      <tr key={h}>
+        <td className="border text-center bg-yellow-100 text-[6px]">
+          {formatHourForTH(h)}
+        </td>
+        <td className="border text-center bg-gray-100 text-[6px]">
+          {formatHourForRU(h)}
+        </td>
+
+        {weekDaysCache.slice(0, 7).map((day, idx) => {
+          const items = bookingsForDayHour(day, h);
+          const isBooked = items.length > 0;
+          return (
+            <td
+              key={idx}
+              onClick={() => {
+                if (!isBooked) {
+                  setModalDate(day);
+                  setModalHour(h);
+                  setModalClient(activeClients()[0] || "");
+                  setModalOpen(true);
+                }
+              }}
+              className={`border align-top px-1 py-0.5 cursor-pointer 
+                ${
+                  isBooked
+                    ? "bg-blue-200"
+                    : idx >= 5
+                    ? "bg-orange-50"
+                    : "bg-white"
+                }`}
+            >
+              <div className="flex flex-col gap-1 h-6">
+                {items.map((b) => (
+                  <div
+                    key={b.id}
+                    className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedBooking(
+                        selectedBooking === b.id ? null : b.id
+                      );
+                    }}
+                  >
+                    <div className="flex items-center justify-center w-full h-full text-[7px]">
+                      <AutoFitText
+                        text={b.clientName}
+                        className="block"
+                        min={7}
+                        max={7}
+                      />
+                      <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">
+                        {b.sessionNumber}
+                      </div>
+                    </div>
+                    {selectedBooking === b.id && (
+                      <button
+                        title="Удалить"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestDeleteBooking(b.id);
+                        }}
+                        className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </td>
+          );
+        })}
+      </tr>
+    ))}
+  </tbody>
+</table>
       </div>
     ))}
   </div>

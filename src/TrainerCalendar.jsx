@@ -156,51 +156,7 @@ function bookingsForDayHour(date, hour) {
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
 }
 
-// ---- свап ----
-function handleTouchStart(e) {
-  if (animating) return;
-  touchStartX.current = e.touches[0].clientX;
-  setIsDragging(true);
-  setDragX(0);
-}
 
-function handleTouchMove(e) {
-  if (!isDragging || animating) return;
-  const delta = e.touches[0].clientX - touchStartX.current;
-
-  // 🔥 Даем лёгкий "peek" следующей недели (до 120px)
-  const limitedDelta = Math.max(Math.min(delta, 120), -120);
-  setDragX(limitedDelta);
-}
-
-function handleTouchEnd() {
-  if (!isDragging || animating) return;
-  setIsDragging(false);
-
-  const threshold = 80;
-  const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
-
-  setAnimating(true);
-
-  if (direction === "left") {
-    setDragX(-window.innerWidth);
-    setTimeout(() => {
-      setAnchorDate((prev) => addWeeks(prev, 1));
-      setDragX(0);
-      setAnimating(false);
-    }, 300);
-  } else if (direction === "right") {
-    setDragX(window.innerWidth);
-    setTimeout(() => {
-      setAnchorDate((prev) => subWeeks(prev, 1));
-      setDragX(0);
-      setAnimating(false);
-    }, 300);
-  } else {
-    setDragX(0);
-    setTimeout(() => setAnimating(false), 200);
-  }
-}
 
 // ---- Добавление брони ----
 async function addBooking() {

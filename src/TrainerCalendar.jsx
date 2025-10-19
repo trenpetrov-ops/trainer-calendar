@@ -90,10 +90,7 @@ export default function TrainerCalendar() {
     
     
     
-    const [dragX, setDragX] = useState(0);
-const [isDragging, setIsDragging] = useState(false);
-const [animating, setAnimating] = useState(false);
-const touchStartX = useRef(0);
+    
     
        
     

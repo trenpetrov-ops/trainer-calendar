@@ -95,6 +95,14 @@ const [isDragging, setIsDragging] = useState(false);
 const [animating, setAnimating] = useState(false);
 const touchStartX = useRef(0);
     
+    const prevWeek = weekDays(subWeeks(anchorDate, 1));
+const thisWeek = weekDays(anchorDate);
+const nextWeek = weekDays(addWeeks(anchorDate, 1));
+
+// массив из трёх недель
+const visibleWeeks = [prevWeek, thisWeek, nextWeek];
+    
+    
     // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
     useEffect(() => {
         const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
@@ -175,29 +183,26 @@ function handleTouchEnd() {
   if (!isDragging || animating) return;
   setIsDragging(false);
 
-  const threshold = 60; // порог свайпа
+  const threshold = 80;
   const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
 
-  if (direction) {
-    setAnimating(true);
-    const finalOffset = direction === "left" ? -window.innerWidth : window.innerWidth;
+  setAnimating(true);
 
-    // 🔄 Анимация “пролистывания” недели
-    setDragX(finalOffset);
+  if (direction === "left") {
+    setDragX(-window.innerWidth);
     setTimeout(() => {
-      if (direction === "left") setAnchorDate((prev) => addWeeks(prev, 1));
-      else setAnchorDate((prev) => subWeeks(prev, 1));
-
-      // небольшая инерция назад
-      setDragX(direction === "left" ? 60 : -60);
-      setTimeout(() => {
-        setDragX(0);
-        setAnimating(false);
-      }, 200);
-    }, 250);
+      setAnchorDate((prev) => addWeeks(prev, 1));
+      setDragX(0);
+      setAnimating(false);
+    }, 300);
+  } else if (direction === "right") {
+    setDragX(window.innerWidth);
+    setTimeout(() => {
+      setAnchorDate((prev) => subWeeks(prev, 1));
+      setDragX(0);
+      setAnimating(false);
+    }, 300);
   } else {
-    // 🔙 Если не долистали — плавно вернуться
-    setAnimating(true);
     setDragX(0);
     setTimeout(() => setAnimating(false), 200);
   }
@@ -389,21 +394,25 @@ async function savePackage() {
             </header>
 
             {/* таблица */}
+            
             <div
-  className={`overflow-hidden select-none relative touch-pan-y`}
+  className="overflow-hidden relative select-none touch-pan-y"
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
 >
   <div
-    className={`transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
+    className={`flex transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
     style={{
-      transform: `translateX(${dragX}px)`,
+      transform: `translateX(calc(${dragX}px - 100%))`, // центрируем текущую неделю
+      width: "300%",
       willChange: "transform",
     }}
   >
-    <table className="border-collapse w-full text-[7px] table-fixed">
-                    <thead>
+    {visibleWeeks.map((days, idx) => (
+      <div key={idx} className="w-full shrink-0">
+        <table className="border-collapse w-full text-[7px] table-fixed">
+            <thead>
                     <tr>
                         <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">
                             Тай<br/><span className="text-[7px]"></span>
@@ -485,9 +494,11 @@ async function savePackage() {
                         </tr>
                     ))}
                     </tbody>
-                </table>
-            </div>
-            </div>
+                        </table>
+      </div>
+    ))}
+  </div>
+</div>
 
 {/* панель клиентов */}
 <div className="mt-4 p-2 border rounded bg-gray-50 text-[12px]">

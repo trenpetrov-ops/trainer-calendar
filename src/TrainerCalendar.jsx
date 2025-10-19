@@ -412,46 +412,60 @@ async function savePackage() {
     {visibleWeeks.map((days, idx) => (
       <div key={idx} className="w-full shrink-0">
         <table className="border-collapse w-full text-[7px] table-fixed">
-            <thead>
-                    <tr>
-                        <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">
-                            Тай<br/><span className="text-[7px]"></span>
-                        </th>
-                        <th className="border px-1 py-0.5 bg-gray-100 text-center sticky left-6 z-20 w-6">
-                            Рус<br/><span className="text-[7px]"></span>
-                        </th>
-                        {weekDaysCache.map((day, idx) => {
-    const monthShort = format(day, "d MMM", { locale: ru })
-        .replace(/\./g, "")
-        .slice(0, 6)
-        .replace(/\s+$/, "");
-    const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-    const weekday2 = ruShortByIndex[day.getDay()];
+  {/* 👇 Добавляем colgroup */}
+  <colgroup>
+    {/* фиксированные первые две */}
+    <col className="w-[30px]" /> {/* Тай */}
+    <col className="w-[30px]" /> {/* Рус */}
 
-    // 🔍 Проверяем, является ли день сегодняшним
-    const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+    {/* остальные колонки (7 дней недели), равномерно распределены */}
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+    <col className="w-[calc((100%-60px)/7)]" />
+  </colgroup>
 
-    return (
-        <th
+  <thead>
+    <tr>
+      <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-[30px]">
+        Тай<br /><span className="text-[7px]"></span>
+      </th>
+      <th className="border px-1 py-0.5 bg-gray-100 text-center sticky left-[30px] z-20 w-[30px]">
+        Рус<br /><span className="text-[7px]"></span>
+      </th>
+
+      {/* далее твой map по дням */}
+      {weekDaysCache.map((day, idx) => {
+        const monthShort = format(day, "d MMM", { locale: ru })
+          .replace(/\./g, "")
+          .slice(0, 6)
+          .replace(/\s+$/, "");
+        const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+        const weekday2 = ruShortByIndex[day.getDay()];
+        const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+
+        return (
+          <th
             key={idx}
             className={`border px-1 py-0.5 text-[9px] transition 
-                ${
-                  isToday
-                    ? "bg-yellow-200 border-yellow-400 shadow-inner"
-                    : idx >= 5
-                    ? "bg-orange-50"
-                    : "bg-red-100"
-                }`}
-        >
+              ${isToday
+                ? "bg-yellow-200 border-yellow-400 shadow-inner"
+                : idx >= 5
+                ? "bg-orange-50"
+                : "bg-red-100"}`}
+          >
             <div className="italic text-[7px] text-center">{monthShort}</div>
             <div className="font-bold text-center text-[11px]">
-                {weekday2} {isToday && <span className="text-yellow-700">*</span>}
+              {weekday2} {isToday && <span className="text-yellow-700">*</span>}
             </div>
-        </th>
-    );
-})}
-                    </tr>
-                    </thead>
+          </th>
+        );
+      })}
+    </tr>
+  </thead>
                     <tbody>
                     {HOURS.map((h) => (
                         <tr key={h}>

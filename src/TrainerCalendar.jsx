@@ -412,20 +412,20 @@ async function savePackage() {
     {visibleWeeks.map((days, idx) => (
       <div key={idx} className="w-full shrink-0">
         <table className="border-collapse w-full text-[7px] table-fixed">
-  {/* 👇 Добавляем colgroup */}
   <colgroup>
-    {/* фиксированные первые две */}
-    <col className="w-[30px]" /> {/* Тай */}
-    <col className="w-[30px]" /> {/* Рус */}
+    {/* Фиксированные ширины для Тай и Рус */}
+    <col style={{ width: "30px" }} />
+    <col style={{ width: "30px" }} />
 
-    {/* остальные колонки (7 дней недели), равномерно распределены */}
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
-    <col className="w-[calc((100%-60px)/7)]" />
+    {/* Остальные равные — зависят от количества дней */}
+    {weekDaysCache.map((_, i) => (
+      <col
+        key={i}
+        style={{
+          width: `calc((100% - 60px) / ${weekDaysCache.length})`,
+        }}
+      />
+    ))}
   </colgroup>
 
   <thead>
@@ -437,7 +437,6 @@ async function savePackage() {
         Рус<br /><span className="text-[7px]"></span>
       </th>
 
-      {/* далее твой map по дням */}
       {weekDaysCache.map((day, idx) => {
         const monthShort = format(day, "d MMM", { locale: ru })
           .replace(/\./g, "")
@@ -445,17 +444,20 @@ async function savePackage() {
           .replace(/\s+$/, "");
         const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
         const weekday2 = ruShortByIndex[day.getDay()];
-        const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+        const isToday =
+          format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
 
         return (
           <th
             key={idx}
             className={`border px-1 py-0.5 text-[9px] transition 
-              ${isToday
-                ? "bg-yellow-200 border-yellow-400 shadow-inner"
-                : idx >= 5
-                ? "bg-orange-50"
-                : "bg-red-100"}`}
+              ${
+                isToday
+                  ? "bg-yellow-200 border-yellow-400 shadow-inner"
+                  : idx >= 5
+                  ? "bg-orange-50"
+                  : "bg-red-100"
+              }`}
           >
             <div className="italic text-[7px] text-center">{monthShort}</div>
             <div className="font-bold text-center text-[11px]">

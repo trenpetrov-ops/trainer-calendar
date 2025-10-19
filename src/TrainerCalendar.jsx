@@ -159,34 +159,47 @@ function handleTouchStart(e) {
   if (animating) return;
   touchStartX.current = e.touches[0].clientX;
   setIsDragging(true);
+  setDragX(0);
 }
 
 function handleTouchMove(e) {
   if (!isDragging || animating) return;
   const delta = e.touches[0].clientX - touchStartX.current;
-  setDragX(delta);
+
+  // 🔥 Даем лёгкий "peek" следующей недели (до 120px)
+  const limitedDelta = Math.max(Math.min(delta, 120), -120);
+  setDragX(limitedDelta);
 }
 
 function handleTouchEnd() {
   if (!isDragging || animating) return;
   setIsDragging(false);
 
-  const threshold = 60; // порог свайпа (в пикселях)
+  const threshold = 60; // порог свайпа
   const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
 
   if (direction) {
     setAnimating(true);
-    // Анимация завершения слайда
-    setDragX(direction === "left" ? -window.innerWidth : window.innerWidth);
+    const finalOffset = direction === "left" ? -window.innerWidth : window.innerWidth;
+
+    // 🔄 Анимация “пролистывания” недели
+    setDragX(finalOffset);
     setTimeout(() => {
       if (direction === "left") setAnchorDate((prev) => addWeeks(prev, 1));
       else setAnchorDate((prev) => subWeeks(prev, 1));
-      setDragX(0);
-      setAnimating(false);
+
+      // небольшая инерция назад
+      setDragX(direction === "left" ? 60 : -60);
+      setTimeout(() => {
+        setDragX(0);
+        setAnimating(false);
+      }, 200);
     }, 250);
   } else {
-    // Возвращаем на место
+    // 🔙 Если не долистали — плавно вернуться
+    setAnimating(true);
     setDragX(0);
+    setTimeout(() => setAnimating(false), 200);
   }
 }
 
@@ -377,15 +390,16 @@ async function savePackage() {
 
             {/* таблица */}
             <div
-  className="overflow-hidden select-none relative touch-pan-y"
+  className={`overflow-hidden select-none relative touch-pan-y`}
   onTouchStart={handleTouchStart}
   onTouchMove={handleTouchMove}
   onTouchEnd={handleTouchEnd}
 >
   <div
-    className={`transition-transform ${animating ? "duration-300 ease-in-out" : ""}`}
+    className={`transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
     style={{
       transform: `translateX(${dragX}px)`,
+      willChange: "transform",
     }}
   >
     <table className="border-collapse w-full text-[7px] table-fixed">

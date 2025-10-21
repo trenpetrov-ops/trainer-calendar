@@ -151,7 +151,7 @@ export default function TrainerCalendar() {
 
   /* --------------------------- СВАЙП ЛОГИКА --------------------------- */
   // три недели: прошлая, текущая, следующая
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+// eslint-disable-next-line react-hooks/exhaustive-deps
 const visibleWeeks = useMemo(() => ([
   weekDays(subWeeks(anchorDate, 1)),
   weekDays(anchorDate),

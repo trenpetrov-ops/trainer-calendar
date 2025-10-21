@@ -3,13 +3,33 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, startOfWeek, format, addWeeks, subWeeks, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  where,
+  getDocs
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-/* -------------------- ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ -------------------- */
+/* ----------------------- Вспомогательные вне компонента ---------------------- */
 
-// ✅ Модал подтверждения удаления
+function startOfWeekFor(date) {
+  return startOfWeek(date, { weekStartsOn: 1 });
+}
+function weekDays(baseDate) {
+  const start = startOfWeekFor(baseDate);
+  return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+}
+
+// те же 15 часов, что у тебя (с 09:00)
+const HOURS = Array.from({ length: 15 }).map((_, i) => 9 + i);
+
+/* ------------------------------ Подтверждение ------------------------------- */
+
 function ConfirmModal({ open, title, onCancel, onConfirm }) {
   if (!open) return null;
   return (
@@ -25,7 +45,8 @@ function ConfirmModal({ open, title, onCancel, onConfirm }) {
   );
 }
 
-// ✅ Автоматически уменьшающий текст
+/* ------------------------------ AutoFitText -------------------------------- */
+
 function AutoFitText({ text, className, min = 7, max = 11 }) {
   const ref = useRef(null);
   const [size, setSize] = useState(max);
@@ -37,7 +58,7 @@ function AutoFitText({ text, className, min = 7, max = 11 }) {
       let current = max;
       while (current > min) {
         el.style.fontSize = current + "px";
-        if (el.scrollWidth <= el.clientWidth - 4) break;
+        if (el.scrollWidth <= el.clientWidth - 2) break;
         current -= 1;
       }
       setSize(current);
@@ -64,7 +85,7 @@ function AutoFitText({ text, className, min = 7, max = 11 }) {
   );
 }
 
-/* --------------------------- ОСНОВНОЙ КОМПОНЕНТ --------------------------- */
+/* -------------------------------- Компонент -------------------------------- */
 
 export default function TrainerCalendar() {
   const [bookings, setBookings] = useState([]);
@@ -86,19 +107,20 @@ export default function TrainerCalendar() {
   const [expandedPackages, setExpandedPackages] = useState({});
   const [confirmState, setConfirmState] = useState({ open: false, title: "", onConfirm: null });
 
-  // --- состояние свайпа (для ПРАВОГО блока с днями) ---
+  // свайп состояния
+  const touchStartX = useRef(0);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [animating, setAnimating] = useState(false);
-  const touchStartX = useRef(0);
 
-  // 🔥 Firebase listeners
+  /* ------------------------------- Firebase -------------------------------- */
+
   useEffect(() => {
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
-      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setBookings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     const unsubPackages = onSnapshot(collection(db, "packages"), (snap) => {
-      setPackages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPackages(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
     return () => {
       unsubBookings();
@@ -106,25 +128,16 @@ export default function TrainerCalendar() {
     };
   }, []);
 
-  /* --------------------------- ВСПОМОГАТЕЛЬНЫЕ --------------------------- */
-  function startOfWeekFor(date) {
-    return startOfWeek(date, { weekStartsOn: 1 });
-  }
-  function weekDays(baseDate) {
-    const start = startOfWeekFor(baseDate);
-    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
-  }
-  const HOURS = Array.from({ length: 15 }).map((_, i) => 9 + i); // 09..23 тай, а рус ниже сдвигается
+  /* -------------------------------- Helpers -------------------------------- */
 
   function formatHourForTH(hour) {
     return `${String(hour).padStart(2, "0")}:00`;
   }
   function formatHourForRU(thHour) {
-    const ruHour = (thHour + 24 - 4) % 24; // ваш текущий сдвиг
+    const ruHour = (thHour + 24 - 4) % 24;
     return `${String(ruHour).padStart(2, "0")}:00`;
   }
 
-  // имена клиентов (учитываем одиночные и общие пакеты)
   function clientNames() {
     const all = [];
     for (const p of packages) {
@@ -133,7 +146,6 @@ export default function TrainerCalendar() {
     }
     return [...new Set(all)];
   }
-
   function activeClients() {
     return clientNames().filter((n) =>
       packages.some(
@@ -149,14 +161,35 @@ export default function TrainerCalendar() {
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
   }
 
-  /* --------------------------- СВАЙП ЛОГИКА --------------------------- */
-  // три недели: прошлая, текущая, следующая
-// eslint-disable-next-line react-hooks/exhaustive-deps
-const visibleWeeks = useMemo(() => ([
-  weekDays(subWeeks(anchorDate, 1)),
-  weekDays(anchorDate),
-  weekDays(addWeeks(anchorDate, 1)),
-]), [anchorDate]);
+  function formatPurchase(dateISO) {
+    try {
+      return format(parseISO(dateISO), "d LLL", { locale: ru });
+    } catch {
+      return dateISO;
+    }
+  }
+  function toggleClientExpand(name) {
+    setExpandedClients((prev) => ({ ...prev, [name]: !prev[name] }));
+  }
+  function togglePackageExpand(packageId) {
+    setExpandedPackages((prev) => ({ ...prev, [packageId]: !prev[packageId] }));
+  }
+  function bookingsForPackage(packageId, clientName) {
+    return bookings
+      .filter((b) => b.packageId === packageId && b.clientName === clientName)
+      .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
+  }
+
+  /* ----------------------------- Свайп логика ------------------------------ */
+
+  const visibleWeeks = useMemo(() => {
+    const base = startOfWeekFor(anchorDate);
+    return [
+      weekDays(addWeeks(base, -1)), // prev
+      weekDays(base),               // current
+      weekDays(addWeeks(base, 1))   // next
+    ];
+  }, [anchorDate]);
 
   function handleTouchStart(e) {
     if (animating) return;
@@ -172,67 +205,59 @@ const visibleWeeks = useMemo(() => ([
     if (!isDragging || animating) return;
     setIsDragging(false);
 
-    const threshold = 60; // пиксели
+    const threshold = 60;
     const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
 
     if (direction) {
       setAnimating(true);
       setDragX(direction === "left" ? -window.innerWidth : window.innerWidth);
       setTimeout(() => {
-        if (direction === "left") setAnchorDate((d) => addWeeks(d, 1));
-        else setAnchorDate((d) => subWeeks(d, 1));
+        if (direction === "left") setAnchorDate((prev) => addWeeks(prev, 1));
+        else setAnchorDate((prev) => subWeeks(prev, 1));
         setDragX(0);
         setAnimating(false);
       }, 250);
     } else {
-      // вернуть на место
       setDragX(0);
     }
   }
 
-  /* --------------------------- CRUD: БРОНЬ --------------------------- */
+  /* ----------------------------- CRUD операции ----------------------------- */
+
   async function addBooking() {
     const name = modalClient?.trim();
     if (!name) return alert("Выберите клиента.");
 
-    // 1. Пакеты с участием клиента
     let pkgList = packages.filter(
-      (p) =>
-        p.clientName === name ||
-        (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+      (p) => p.clientName === name || (Array.isArray(p.clientNames) && p.clientNames.includes(name))
     );
     if (pkgList.length === 0) {
       return alert("У клиента нет доступных пакетов.");
     }
 
-    // 2. Если есть общий пакет — брать все пакеты с тем же составом
-    const sharedPkg = pkgList.find(
-      (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
-    );
+    const sharedPkg = pkgList.find((p) => Array.isArray(p.clientNames) && p.clientNames.length > 1);
+
     if (sharedPkg) {
       const sharedNames = [...sharedPkg.clientNames].sort();
       pkgList = packages.filter((p) => {
         if (!Array.isArray(p.clientNames)) return false;
         const current = [...p.clientNames].sort();
         return JSON.stringify(current) === JSON.stringify(sharedNames);
+        // тем самым тренировки списываются с самого старого общего
       });
     }
 
-    // 3. Сортировка по дате добавления (старые -> новые)
     pkgList = pkgList.sort((a, b) => {
       const da = new Date(a.addedISO || 0);
       const db = new Date(b.addedISO || 0);
       return da - db;
     });
 
-    // 4. Первый незавершенный пакет
     const targetPkg = pkgList.find((p) => p.used < p.size);
     if (!targetPkg) return alert("У клиента нет доступных пакетов.");
 
     const dateISO = format(modalDate, "yyyy-MM-dd");
-    const exists = bookings.some(
-      (b) => b.dateISO === dateISO && b.hour === modalHour
-    );
+    const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);
     if (exists) return alert("На это время уже есть запись.");
 
     const sessionNumber = (targetPkg.used || 0) + 1;
@@ -242,17 +267,16 @@ const visibleWeeks = useMemo(() => ([
       dateISO,
       hour: modalHour,
       packageId: targetPkg.id,
-      sessionNumber,
+      sessionNumber
     });
 
     await updateDoc(doc(db, "packages", targetPkg.id), {
-      used: sessionNumber,
+      used: sessionNumber
     });
 
     setModalOpen(false);
   }
 
-  /* --------------------------- CRUD: УДАЛЕНИЕ БРОНИ --------------------------- */
   async function requestDeleteBooking(id) {
     const b = bookings.find((x) => x.id === id);
     if (!b) return;
@@ -275,12 +299,11 @@ const visibleWeeks = useMemo(() => ([
     });
   }
 
-  /* --------------------------- CRUD: ПАКЕТ --------------------------- */
   async function savePackage() {
     const raw = (packageClient || "").trim();
     if (!raw) return alert("Введите имя клиента (или несколько через запятую).");
 
-    const names = raw.split(",").map(n => n.trim()).filter(Boolean);
+    const names = raw.split(",").map((n) => n.trim()).filter(Boolean);
     if (names.length === 0) return alert("Введите хотя бы одно имя.");
 
     const data = {
@@ -296,7 +319,6 @@ const visibleWeeks = useMemo(() => ([
     }
 
     await addDoc(collection(db, "packages"), data);
-
     setPackageModalOpen(false);
   }
 
@@ -329,72 +351,62 @@ const visibleWeeks = useMemo(() => ([
     }
   }
 
-  // вспомогательные
-  function formatPurchase(dateISO) {
-    try {
-      return format(parseISO(dateISO), "d LLL", { locale: ru });
-    } catch {
-      return dateISO;
-    }
-  }
-  function toggleClientExpand(name) {
-    setExpandedClients((prev) => ({ ...prev, [name]: !prev[name] }));
-  }
-  function togglePackageExpand(packageId) {
-    setExpandedPackages((prev) => ({ ...prev, [packageId]: !prev[packageId] }));
-  }
-  function bookingsForPackage(packageId, clientName) {
-    return bookings
-      .filter((b) => b.packageId === packageId && b.clientName === clientName)
-      .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
-  }
+  /* ---------------------------------- UI ----------------------------------- */
 
-  
-
-  /* ----------------------------------- UI ----------------------------------- */
-
+  // Левый блок (Тай/Рус) фиксированной ширины, правый блок (7 дней) свайпится
   return (
     <div
       className="p-4 font-sans max-w-5xl mx-auto text-xs mt-6"
       onClick={() => setSelectedBooking(null)}
       style={{ overscrollBehavior: "none" }}
     >
-      {/* заголовок */}
+      {/* шапка */}
       <header className="flex items-center justify-between mb-2">
         <div className="font-semibold ml-auto flex gap-3 text-[13px]">
-          <button onClick={() => setAnchorDate(subWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">←</button>
-          <button onClick={() => setAnchorDate(new Date())} className="px-2 py-0.5 bg-gray-100 rounded">Сегодня</button>
-          <button onClick={() => setAnchorDate(addWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">→</button>
+          <button
+            onClick={() => setAnchorDate((d) => subWeeks(d, 1))}
+            className="px-2 py-0.5 bg-gray-100 rounded"
+          >
+            ←
+          </button>
+          <button
+            onClick={() => setAnchorDate(new Date())}
+            className="px-2 py-0.5 bg-gray-100 rounded"
+          >
+            Сегодня
+          </button>
+          <button
+            onClick={() => setAnchorDate((d) => addWeeks(d, 1))}
+            className="px-2 py-0.5 bg-gray-100 rounded"
+          >
+            →
+          </button>
         </div>
       </header>
 
-      {/* КАЛЕНДАРЬ: ДВЕ ЧАСТИ — ЛЕВАЯ (фикс) + ПРАВАЯ (свайп) */}
-      <div className="w-full relative">
-        <div className="grid grid-cols-[60px_60px_1fr]">
-          {/* ЛЕВАЯ ФИКС. ЧАСТЬ: два столбца Тай/Рус */}
-          <div className="col-span-2">
-            <table className="border-collapse w-[120px] text-[7px] table-fixed">
-              <colgroup>
-                <col style={{ width: "60px" }} />
-                <col style={{ width: "60px" }} />
-              </colgroup>
+      {/* Две таблицы бок о бок: левая статична, правая свайпится */}
+      <div className="relative overflow-hidden">
+        <div className="flex">
+          {/* ЛЕВАЯ СТАТИЧНАЯ ТАБЛИЦА (Тай/Рус) */}
+          <div className="shrink-0" style={{ width: 60 /* 2*30px как раньше */ }}>
+            <table className="border-collapse w-[60px] text-[7px] table-fixed">
               <thead>
                 <tr>
-                  <th className="border px-1 py-0.5 bg-yellow-100 text-center w-[60px] sticky left-0 z-30">
+                  <th className="border px-1 py-0.5 bg-yellow-100 text-center w-[30px]">
                     Тай<br /><span className="text-[7px]"></span>
                   </th>
-                  <th className="border px-1 py-0.5 bg-gray-100 text-center w-[60px] sticky left-[60px] z-20">
+                  <th className="border px-1 py-0.5 bg-gray-100 text-center w-[30px]">
                     Рус<br /><span className="text-[7px]"></span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {HOURS.map((h) => (
-                  <tr key={`left-${h}`}>
-                    <td className="border text-center bg-yellow-100 w-[60px] text-[6px] h-6 align-middle">
+                  <tr key={h}>
+                    <td className="border text-center bg-yellow-100 w-[30px] text-[6px]">
                       {formatHourForTH(h)}
                     </td>
-                    <td className="border text-center bg-gray-100 w-[60px] text-[6px] h-6 align-middle">
+                    <td className="border text-center bg-gray-100 w-[30px] text-[6px]">
                       {formatHourForRU(h)}
                     </td>
                   </tr>
@@ -403,29 +415,33 @@ const visibleWeeks = useMemo(() => ([
             </table>
           </div>
 
-          {/* ПРАВАЯ СВАЙП-ОБЛАСТЬ: 7 столбцов дней; «подглядывание» соседних недель */}
+          {/* ПРАВАЯ СВАЙПАЕМАЯ ОБЛАСТЬ (3 недели: prev/current/next) */}
           <div
-            className="overflow-hidden relative select-none touch-pan-y"
+            className="relative select-none touch-pan-y overflow-hidden flex-1"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             <div
-              className={`flex transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
+              className={`flex transition-transform ${
+                animating ? "duration-300 ease-in-out" : "duration-75 ease-out"
+              }`}
               style={{
-                transform: `translateX(calc(${dragX}px - 100%))`,
+                transform: `translateX(calc(${dragX}px - 100%))`, // текущая неделя в центре
                 width: "300%",
-                willChange: "transform",
+                willChange: "transform"
               }}
             >
-              {visibleWeeks.map((days, panelIdx) => (
-                <div key={panelIdx} className="w-full shrink-0">
+              {visibleWeeks.map((days, blockIdx) => (
+                <div key={blockIdx} className="w-full shrink-0">
+                  {/* Таблица только для 7 дневных колонок */}
                   <table className="border-collapse w-full text-[7px] table-fixed">
                     <colgroup>
                       {days.map((_, i) => (
-                        <col key={i} style={{ width: `${100 / 7}%` }} />
+                        <col key={i} style={{ width: `calc(100% / 7)` }} />
                       ))}
                     </colgroup>
+
                     <thead>
                       <tr>
                         {days.map((day, idx) => {
@@ -435,17 +451,19 @@ const visibleWeeks = useMemo(() => ([
                             .replace(/\s+$/, "");
                           const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
                           const weekday2 = ruShortByIndex[day.getDay()];
-                          const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+                          const isToday =
+                            format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
                           return (
                             <th
                               key={idx}
-                              className={`border px-1 py-0.5 text-[9px] transition
-                                ${isToday
+                              className={`border px-1 py-0.5 text-[9px] transition ${
+                                isToday
                                   ? "bg-yellow-200 border-yellow-400 shadow-inner"
                                   : idx >= 5
-                                    ? "bg-orange-50"
-                                    : "bg-red-100"
-                                }`}
+                                  ? "bg-orange-50"
+                                  : "bg-red-100"
+                              }`}
+                              style={{ textAlign: "center" }}
                             >
                               <div className="italic text-[7px] text-center">{monthShort}</div>
                               <div className="font-bold text-center text-[11px]">
@@ -456,9 +474,10 @@ const visibleWeeks = useMemo(() => ([
                         })}
                       </tr>
                     </thead>
+
                     <tbody>
                       {HOURS.map((h) => (
-                        <tr key={`right-${panelIdx}-${h}`}>
+                        <tr key={h}>
                           {days.map((day, idx) => {
                             const items = bookingsForDayHour(day, h);
                             const isBooked = items.length > 0;
@@ -473,15 +492,23 @@ const visibleWeeks = useMemo(() => ([
                                     setModalOpen(true);
                                   }
                                 }}
-                                className={`border align-top px-1 py-0.5 cursor-pointer h-6
-                                  ${isBooked ? "bg-blue-200" : idx >= 5 ? "bg-orange-50" : "bg-white"}`}
+                                className={`border align-top px-1 py-0.5 cursor-pointer ${
+                                  isBooked
+                                    ? "bg-blue-200"
+                                    : day.getDay() === 0 || day.getDay() === 6
+                                    ? "bg-orange-50"
+                                    : "bg-white"
+                                }`}
                               >
-                                <div className="flex flex-col gap-1 h-full">
+                                <div className="flex flex-col gap-1 h-6">
                                   {items.map((b) => (
                                     <div
                                       key={b.id}
                                       className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
-                                      onClick={(e) => { e.stopPropagation(); setSelectedBooking(selectedBooking === b.id ? null : b.id); }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedBooking(selectedBooking === b.id ? null : b.id);
+                                      }}
                                     >
                                       <div className="flex items-center justify-center w-full h-full text-[7px]">
                                         <AutoFitText text={b.clientName} className="block" min={7} max={7} />
@@ -492,7 +519,10 @@ const visibleWeeks = useMemo(() => ([
                                       {selectedBooking === b.id && (
                                         <button
                                           title="Удалить"
-                                          onClick={(e) => { e.stopPropagation(); requestDeleteBooking(b.id); }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            requestDeleteBooking(b.id);
+                                          }}
                                           className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
                                         >
                                           ✕
@@ -518,22 +548,24 @@ const visibleWeeks = useMemo(() => ([
       {/* панель клиентов */}
       <div className="mt-4 p-2 border rounded bg-gray-50 text-[12px]">
         <div className="flex justify-between items-start">
-          <button onClick={() => setPackageModalOpen(true)} className="font-semibold text-green-600 text-[20px]">+</button>
+          <button
+            onClick={() => setPackageModalOpen(true)}
+            className="font-semibold text-green-600 text-[20px]"
+          >
+            +
+          </button>
         </div>
+
         <div className="mt-2 space-y-2">
           {clientNames().length === 0 && <div className="text-gray-500">Нет данных</div>}
           {clientNames().map((name) => {
             const pkgList = packages.filter(
-              (p) =>
-                p.clientName === name ||
-                (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+              (p) => p.clientName === name || (Array.isArray(p.clientNames) && p.clientNames.includes(name))
             );
             const activePkg = pkgList.find((p) => p.used < p.size);
-            const sharedPkg = pkgList.find(
-              (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
-            );
-            const isSecondaryInShared =
-              sharedPkg && sharedPkg.clientNames[0] !== name;
+
+            const sharedPkg = pkgList.find((p) => Array.isArray(p.clientNames) && p.clientNames.length > 1);
+            const isSecondaryInShared = sharedPkg && sharedPkg.clientNames[0] !== name;
 
             return (
               <div key={name} className="border rounded p-1 bg-white">
@@ -547,6 +579,7 @@ const visibleWeeks = useMemo(() => ([
                       {activePkg ? `${activePkg.used}/${activePkg.size}` : "✓ завершено"}
                     </div>
                   </div>
+
                   <div className="flex items-center gap-3">
                     {!isSecondaryInShared && (
                       <button
@@ -564,7 +597,10 @@ const visibleWeeks = useMemo(() => ([
                         + пакет
                       </button>
                     )}
-                    <button onClick={() => requestRemoveClient(name)} className="text-red-500 text-[10px]">
+                    <button
+                      onClick={() => requestRemoveClient(name)}
+                      className="text-red-500 text-[10px]"
+                    >
                       удалить
                     </button>
                   </div>
@@ -579,7 +615,7 @@ const visibleWeeks = useMemo(() => ([
                           onClick={() => togglePackageExpand(p.id)}
                         >
                           <div className="text-gray-700 text-[10px]">
-                            {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
+                            {(p.used || 0)}/{p.size} — {formatPurchase(p.addedISO)}
                           </div>
 
                           {p.clientNames && p.clientNames.length > 1 && (
@@ -590,7 +626,10 @@ const visibleWeeks = useMemo(() => ([
 
                           {(p.used || 0) >= p.size && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); requestRemovePackage(name, p.id); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestRemovePackage(name, p.id);
+                              }}
                               className="text-red-500 text-[10px]"
                             >
                               ✕
@@ -603,7 +642,8 @@ const visibleWeeks = useMemo(() => ([
                             {bookingsForPackage(p.id, name).length === 0 && <li>Нет записей</li>}
                             {bookingsForPackage(p.id, name).map((b) => (
                               <li key={b.id}>
-                                {b.sessionNumber} / {p.size} — {format(parseISO(b.dateISO), "d LLL", { locale: ru })}
+                                {b.sessionNumber} / {p.size} —{" "}
+                                {format(parseISO(b.dateISO), "d LLL", { locale: ru })}
                               </li>
                             ))}
                           </ul>
@@ -620,12 +660,14 @@ const visibleWeeks = useMemo(() => ([
 
       {/* модал добавления записи */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModalOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setModalOpen(false)}
+        >
           <div className="bg-white p-3 rounded w-72" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold mb-2 text-sm">Добавить запись</h3>
             <p className="text-[11px] mb-2">
-              {modalDate && format(modalDate, "d LLL (EEE)", { locale: ru })}
-              {" — "}
+              {modalDate && format(modalDate, "d LLL (EEE)", { locale: ru })} —{" "}
               {formatHourForTH(modalHour)} / {formatHourForRU(modalHour)}
             </p>
             <select
@@ -634,11 +676,19 @@ const visibleWeeks = useMemo(() => ([
               className="border w-full px-2 py-1 rounded mb-3 text-[11px]"
             >
               <option value="">Выберите клиента</option>
-              {clientNames().map((c) => <option key={c} value={c}>{c}</option>)}
+              {clientNames().map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
             <div className="flex gap-2">
-              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
-              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
+              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">
+                Сохранить
+              </button>
+              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">
+                Отмена
+              </button>
             </div>
           </div>
         </div>
@@ -646,7 +696,10 @@ const visibleWeeks = useMemo(() => ([
 
       {/* модал добавления пакета */}
       {packageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setPackageModalOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setPackageModalOpen(false)}
+        >
           <div className="bg-white p-3 rounded w-72" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold mb-2 text-sm">Добавить пакет</h3>
             <input
@@ -667,19 +720,24 @@ const visibleWeeks = useMemo(() => ([
               <option value={20}>20 трен.</option>
             </select>
             <div className="flex gap-2">
-              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
-              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
+              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">
+                Сохранить
+              </button>
+              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">
+                Отмена
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* подтверждение */}
       <ConfirmModal
         open={confirmState.open}
         title={confirmState.title}
         onCancel={() => setConfirmState({ open: false, title: "", onConfirm: null })}
-        onConfirm={() => { confirmState.onConfirm && confirmState.onConfirm(); }}
+        onConfirm={() => {
+          confirmState.onConfirm && confirmState.onConfirm();
+        }}
       />
     </div>
   );

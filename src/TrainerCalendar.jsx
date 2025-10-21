@@ -111,15 +111,15 @@ export default function TrainerCalendar() {
     return startOfWeek(date, { weekStartsOn: 1 });
   }
 
-  function generateWeekDays(baseDate) {
-    const start = startOfWeekFor(baseDate);
-    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
-  }
+  const generateWeekDays = React.useCallback((baseDate) => {
+  const start = startOfWeekFor(baseDate);
+  return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+}, []);
 
   const HOURS = useMemo(
-    () => Array.from({ length: 15 }).map((_, i) => 9 + i),
-    []
-  );
+  () => Array.from({ length: 15 }).map((_, i) => 9 + i),
+  []
+);
 
   function formatHourForTH(hour) {
     return `${String(hour).padStart(2, "0")}:00`;
@@ -351,7 +351,7 @@ export default function TrainerCalendar() {
     const currWeek = generateWeekDays(anchorDate);
     const nextWeek = generateWeekDays(addWeeks(anchorDate, 1));
     return [prevWeek, currWeek, nextWeek];
-  }, [anchorDate]);
+  }, [anchorDate, generateWeekDays]);
 
   // ---- UI ----
   return (

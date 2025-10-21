@@ -151,11 +151,12 @@ export default function TrainerCalendar() {
 
   /* --------------------------- СВАЙП ЛОГИКА --------------------------- */
   // три недели: прошлая, текущая, следующая
-  const visibleWeeks = useMemo(() => ([
-    weekDays(subWeeks(anchorDate, 1)),
-    weekDays(anchorDate),
-    weekDays(addWeeks(anchorDate, 1)),
-  ]), [anchorDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+const visibleWeeks = useMemo(() => ([
+  weekDays(subWeeks(anchorDate, 1)),
+  weekDays(anchorDate),
+  weekDays(addWeeks(anchorDate, 1)),
+]), [anchorDate]);
 
   function handleTouchStart(e) {
     if (animating) return;
@@ -348,7 +349,7 @@ export default function TrainerCalendar() {
       .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
   }
 
-  const weekDaysCache = weekDays(anchorDate); // для заголовка, если нужно
+  
 
   /* ----------------------------------- UI ----------------------------------- */
 

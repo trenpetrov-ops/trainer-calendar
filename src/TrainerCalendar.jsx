@@ -1,5 +1,5 @@
 // src/TrainerCalendar.jsx
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { addDays, startOfWeek, format, addWeeks, subWeeks, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
@@ -86,13 +86,7 @@ export default function TrainerCalendar() {
   const [expandedPackages, setExpandedPackages] = useState({});
   const [confirmState, setConfirmState] = useState({ open: false, title: "", onConfirm: null });
 
-  // ---- свайп состояния (с подглядыванием) ----
-  const [dragX, setDragX] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const [animating, setAnimating] = useState(false);
-  const touchStartX = useRef(0);
-
-  // 🔥 Firebase подписки
+  // 🔥 Подключение к Firebase (реактивно слушаем коллекции)
   useEffect(() => {
     const unsubBookings = onSnapshot(collection(db, "bookings"), (snap) => {
       setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -110,16 +104,11 @@ export default function TrainerCalendar() {
   function startOfWeekFor(date) {
     return startOfWeek(date, { weekStartsOn: 1 });
   }
-
-  const generateWeekDays = React.useCallback((baseDate) => {
-  const start = startOfWeekFor(baseDate);
-  return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
-}, []);
-
-  const HOURS = useMemo(
-  () => Array.from({ length: 15 }).map((_, i) => 9 + i),
-  []
-);
+  function getWeekDays(baseDate) {
+    const start = startOfWeekFor(baseDate);
+    return Array.from({ length: 7 }).map((_, i) => addDays(start, i));
+  }
+  const HOURS = Array.from({ length: 15 }).map((_, i) => 9 + i); // 9..23 (15 слотов)
 
   function formatHourForTH(hour) {
     return `${String(hour).padStart(2, "0")}:00`;
@@ -129,7 +118,7 @@ export default function TrainerCalendar() {
     return `${String(ruHour).padStart(2, "0")}:00`;
   }
 
-  // Список имён клиентов
+  // Возвращает список всех имён клиентов (включая из общих пакетов)
   function clientNames() {
     const all = [];
     for (const p of packages) {
@@ -154,32 +143,32 @@ export default function TrainerCalendar() {
     return bookings.filter((b) => b.dateISO === dateISO && b.hour === hour);
   }
 
-  // ---- Свайп-логика (подглядывание) ----
+  // ---- свайп по неделям (только правый блок с днями) ----
+  const touchStartX = useRef(0);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [animating, setAnimating] = useState(false);
+
   function handleTouchStart(e) {
     if (animating) return;
     touchStartX.current = e.touches[0].clientX;
     setIsDragging(true);
   }
-
   function handleTouchMove(e) {
     if (!isDragging || animating) return;
     const delta = e.touches[0].clientX - touchStartX.current;
-    // ограничим подглядывание, чтобы не уезжало далеко
-    const maxPeek = Math.min(80, window.innerWidth * 0.25); // до 25% ширины
-    const clamped = Math.max(-maxPeek, Math.min(maxPeek, delta));
-    setDragX(clamped);
+    setDragX(delta);
   }
-
   function handleTouchEnd() {
     if (!isDragging || animating) return;
     setIsDragging(false);
 
-    const threshold = Math.min(60, window.innerWidth * 0.18); // порог свайпа
+    const threshold = 60; // пиксели
     const direction = dragX < -threshold ? "left" : dragX > threshold ? "right" : null;
 
     if (direction) {
       setAnimating(true);
-      // плавный докат по направлению свайпа
+      // эффект завершения
       setDragX(direction === "left" ? -window.innerWidth : window.innerWidth);
       setTimeout(() => {
         if (direction === "left") setAnchorDate((prev) => addWeeks(prev, 1));
@@ -188,7 +177,7 @@ export default function TrainerCalendar() {
         setAnimating(false);
       }, 220);
     } else {
-      // возврат на место
+      // вернуться на место
       setDragX(0);
     }
   }
@@ -198,16 +187,25 @@ export default function TrainerCalendar() {
     const name = modalClient?.trim();
     if (!name) return alert("Выберите клиента.");
 
-    // 1) Все пакеты, где участвует этот клиент (в т.ч. общие)
+    // 🔍 1. Находим все пакеты, где участвует этот клиент (в том числе общие)
     let pkgList = packages.filter(
-      (p) => p.clientName === name || (Array.isArray(p.clientNames) && p.clientNames.includes(name))
+      (p) =>
+        p.clientName === name ||
+        (Array.isArray(p.clientNames) && p.clientNames.includes(name))
     );
-    if (pkgList.length === 0) return alert("У клиента нет доступных пакетов.");
 
-    // 2) Если есть общий пакет — группируем по одинаковому составу имён
-    const sharedPkg = pkgList.find((p) => Array.isArray(p.clientNames) && p.clientNames.length > 1);
+    if (pkgList.length === 0) {
+      return alert("У клиента нет доступных пакетов.");
+    }
+
+    // 🔗 2. Проверяем, есть ли общий пакет
+    const sharedPkg = pkgList.find(
+      (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
+    );
+
+    // 🔁 Если есть общий пакет — ищем все пакеты с тем же составом участников
     if (sharedPkg) {
-      const sharedNames = [...sharedPkg.clientNames].sort();
+      const sharedNames = [...sharedPkg.clientNames].sort(); // сортируем для стабильности
       pkgList = packages.filter((p) => {
         if (!Array.isArray(p.clientNames)) return false;
         const current = [...p.clientNames].sort();
@@ -215,33 +213,37 @@ export default function TrainerCalendar() {
       });
     }
 
-    // 3) Сортируем по дате добавления — сначала старые
+    // 📅 3. Сортируем по дате добавления (от старых к новым)
     pkgList = pkgList.sort((a, b) => {
       const da = new Date(a.addedISO || 0);
       const db = new Date(b.addedISO || 0);
       return da - db;
     });
 
-    // 4) Берём первый незавершённый
+    // 🎯 4. Берём первый незавершённый пакет
     const targetPkg = pkgList.find((p) => p.used < p.size);
     if (!targetPkg) return alert("У клиента нет доступных пакетов.");
 
     const dateISO = format(modalDate, "yyyy-MM-dd");
-    const exists = bookings.some((b) => b.dateISO === dateISO && b.hour === modalHour);
+    const exists = bookings.some(
+      (b) => b.dateISO === dateISO && b.hour === modalHour
+    );
     if (exists) return alert("На это время уже есть запись.");
 
     const sessionNumber = (targetPkg.used || 0) + 1;
 
+    // 💾 Добавляем запись
     await addDoc(collection(db, "bookings"), {
       clientName: name,
       dateISO,
       hour: modalHour,
       packageId: targetPkg.id,
-      sessionNumber
+      sessionNumber,
     });
 
+    // 🔄 Обновляем счётчик
     await updateDoc(doc(db, "packages", targetPkg.id), {
-      used: sessionNumber
+      used: sessionNumber,
     });
 
     setModalOpen(false);
@@ -275,6 +277,7 @@ export default function TrainerCalendar() {
     const raw = (packageClient || "").trim();
     if (!raw) return alert("Введите имя клиента (или несколько через запятую).");
 
+    // Позволяем вводить несколько клиентов через запятую
     const names = raw.split(",").map(n => n.trim()).filter(Boolean);
     if (names.length === 0) return alert("Введите хотя бы одно имя.");
 
@@ -284,6 +287,7 @@ export default function TrainerCalendar() {
       addedISO: new Date().toISOString().slice(0, 10)
     };
 
+    // Если один клиент — сохраняем старую схему для совместимости
     if (names.length === 1) {
       data.clientName = names[0];
     } else {
@@ -291,6 +295,7 @@ export default function TrainerCalendar() {
     }
 
     await addDoc(collection(db, "packages"), data);
+
     setPackageModalOpen(false);
   }
 
@@ -325,7 +330,7 @@ export default function TrainerCalendar() {
     }
   }
 
-  // ---- Форматтеры/раскрывалки ----
+  // ---- Вспомогательные ----
   function formatPurchase(dateISO) {
     try {
       return format(parseISO(dateISO), "d LLL", { locale: ru });
@@ -345,13 +350,11 @@ export default function TrainerCalendar() {
       .sort((a, b) => a.dateISO.localeCompare(b.dateISO) || a.hour - b.hour);
   }
 
-  // ---- 3 недели для карусели (prev, current, next) ----
-  const visibleWeeks = useMemo(() => {
-    const prevWeek = generateWeekDays(subWeeks(anchorDate, 1));
-    const currWeek = generateWeekDays(anchorDate);
-    const nextWeek = generateWeekDays(addWeeks(anchorDate, 1));
-    return [prevWeek, currWeek, nextWeek];
-  }, [anchorDate, generateWeekDays]);
+  // Недели для правого слайдера (пред/тек/след)
+  const prevWeekDays = getWeekDays(subWeeks(anchorDate, 1));
+  const currWeekDays = getWeekDays(anchorDate);
+  const nextWeekDays = getWeekDays(addWeeks(anchorDate, 1));
+  const weekTriplet = [prevWeekDays, currWeekDays, nextWeekDays];
 
   // ---- UI ----
   return (
@@ -363,182 +366,141 @@ export default function TrainerCalendar() {
       {/* заголовок */}
       <header className="flex items-center justify-between mb-2">
         <div className="font-semibold ml-auto flex gap-3 text-[13px]">
-          <button
-            onClick={() => setAnchorDate(subWeeks(anchorDate, 1))}
-            className="px-2 py-0.5 bg-gray-100 rounded"
-          >
-            ←
-          </button>
-          <button
-            onClick={() => setAnchorDate(new Date())}
-            className="px-2 py-0.5 bg-gray-100 rounded"
-          >
-            Сегодня
-          </button>
-          <button
-            onClick={() => setAnchorDate(addWeeks(anchorDate, 1))}
-            className="px-2 py-0.5 bg-gray-100 rounded"
-          >
-            →
-          </button>
+          <button onClick={() => setAnchorDate(subWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">←</button>
+          <button onClick={() => setAnchorDate(new Date())} className="px-2 py-0.5 bg-gray-100 rounded">Сегодня</button>
+          <button onClick={() => setAnchorDate(addWeeks(anchorDate, 1))} className="px-2 py-0.5 bg-gray-100 rounded">→</button>
         </div>
       </header>
 
-      {/* КАРУСЕЛЬ НЕДЕЛЬ со свайпом и подглядыванием */}
-      <div
-        className="overflow-hidden relative select-none touch-pan-y"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div
-          className={`flex transition-transform ${animating ? "duration-200 ease-in-out" : "duration-75 ease-out"}`}
-          style={{
-            // центрируем текущую неделю и добавляем подглядывание dragX
-            transform: `translateX(calc(${dragX}px - 100%))`,
-            width: "300%",
-            willChange: "transform"
-          }}
-        >
-          {visibleWeeks.map((daysOfWeek, paneIdx) => {
-            // определяем: это ли центральная неделя?
-            const isCenter = paneIdx === 1;
-            return (
-              <div key={paneIdx} className="w-full shrink-0">
-                {/* Таблица недели */}
-                <table className="border-collapse w-full text-[7px] table-fixed">
-                  {/* колонки: 2 фиксированные + 7 равных */}
-                  <colgroup>
-                    {/* фиксированные (как у тебя) */}
-                    <col style={{ width: "1.5rem" }} /> {/* Тай (w-6) */}
-                    <col style={{ width: "1.5rem" }} /> {/* Рус (w-6) */}
-                    {/* 7 дней = равные части от остатка ширины */}
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <col key={i} style={{ width: "calc((100% - 3rem) / 7)" }} />
-                    ))}
-                  </colgroup>
+      {/* Две синхронные части: слева фиксированные "Тай/Рус", справа свайповая сетка 7 дней */}
+      <div className="w-full relative overflow-hidden">
+        <div className="flex w-full">
+          {/* ЛЕВАЯ часть — фиксированные "Тай / Рус" */}
+          <div className="shrink-0" style={{ width: "48px" /* w-6 + w-6 (примерно 24 + 24) */ }}>
+            <table className="border-collapse text-[7px] table-fixed w-full">
+              <thead>
+                <tr>
+                  <th className="border px-1 py-0.5 bg-yellow-100 text-center w-6">
+                    Тай<br /><span className="text-[7px]"></span>
+                  </th>
+                  <th className="border px-1 py-0.5 bg-gray-100 text-center w-6">
+                    Рус<br /><span className="text-[7px]"></span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {HOURS.map((h) => (
+                  <tr key={h}>
+                    <td className="border text-center bg-yellow-100 w-6 text-[6px]">{formatHourForTH(h)}</td>
+                    <td className="border text-center bg-gray-100 w-6 text-[6px]">{formatHourForRU(h)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-                  <thead>
-                    <tr>
-                      {/* Тай / Рус — липкие, фикс. ширина */}
-                      <th className="border px-1 py-0.5 bg-yellow-100 text-center sticky left-0 z-30 w-6">
-                        Тай<br /><span className="text-[7px]"></span>
-                      </th>
-                      <th className="border px-1 py-0.5 bg-gray-100 text-center sticky left-6 z-20 w-6">
-                        Рус<br /><span className="text-[7px]"></span>
-                      </th>
+          {/* ПРАВАЯ часть — свайповая, всегда 7 столбцов на экране */}
+          <div
+            className="relative overflow-hidden grow select-none touch-pan-y"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div
+              className={`flex h-full transition-transform ${animating ? "duration-300 ease-in-out" : "duration-75 ease-out"}`}
+              style={{
+                width: "300%",
+                transform: `translateX(calc(${dragX}px - 100%))`, // центр текущей недели
+                willChange: "transform",
+              }}
+            >
+              {weekTriplet.map((weekDaysArr, paneIdx) => (
+                <div key={paneIdx} className="w-full shrink-0">
+                  <table className="border-collapse w-full text-[7px] table-fixed">
+                    {/* 7 равных столбцов */}
+                    <colgroup>
+                      {Array.from({ length: 7 }).map((_, i) => (
+                        <col key={i} style={{ width: "calc(100% / 7)" }} />
+                      ))}
+                    </colgroup>
 
-                      {/* 7 дней недели */}
-                      {daysOfWeek.map((day, idx) => {
-                        const monthShort = format(day, "d MMM", { locale: ru })
-                          .replace(/\./g, "")
-                          .slice(0, 6)
-                          .replace(/\s+$/, "");
-                        const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-                        const weekday2 = ruShortByIndex[day.getDay()];
-
-                        // Подсветка сегодняшнего дня
-                        const isToday =
-                          format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-
-                        return (
-                          <th
-                            key={idx}
-                            className={`border px-1 py-0.5 text-[9px] transition
-                              ${
-                                isToday
-                                  ? "bg-yellow-200 border-yellow-400 shadow-inner"
-                                  : idx >= 5
-                                  ? "bg-orange-50"
-                                  : "bg-red-100"
-                              }`}
-                          >
-                            <div className="italic text-[7px] text-center">{monthShort}</div>
-                            <div className="font-bold text-center text-[11px]">
-                              {weekday2} {isToday && <span className="text-yellow-700">*</span>}
-                            </div>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {HOURS.map((h) => (
-                      <tr key={h}>
-                        {/* Тай / Рус — липкие, фикс. ширина */}
-                        <td className="border text-center bg-yellow-100 w-6 sticky left-0 z-30">
-                          {formatHourForTH(h)}
-                        </td>
-                        <td className="border text-center bg-gray-100 w-6 sticky left-6 z-20">
-                          {formatHourForRU(h)}
-                        </td>
-
-                        {daysOfWeek.map((day, idx) => {
-                          const items = bookingsForDayHour(day, h);
-                          const isBooked = items.length > 0;
+                    <thead>
+                      <tr>
+                        {weekDaysArr.map((day, idx) => {
+                          const monthShort = format(day, "d MMM", { locale: ru })
+                            .replace(/\./g, "")
+                            .slice(0, 6)
+                            .replace(/\s+$/, "");
+                          const ruShortByIndex = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+                          const weekday2 = ruShortByIndex[day.getDay()];
+                          const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
                           return (
-                            <td
+                            <th
                               key={idx}
-                              onClick={() => {
-                                if (!isBooked && isCenter) {
-                                  setModalDate(day);
-                                  setModalHour(h);
-                                  setModalClient(activeClients()[0] || "");
-                                  setModalOpen(true);
-                                }
-                              }}
-                              className={`border align-top px-1 py-0.5 cursor-pointer
-                                ${
-                                  isBooked
-                                    ? "bg-blue-200"
-                                    : idx >= 5
-                                    ? "bg-orange-50"
-                                    : "bg-white"
-                                }`}
-                              style={{ height: "1.5rem" }} // чтобы высоты строк не "прыгали"
+                              className={`border px-1 py-0.5 text-[9px] transition ${isToday ? "bg-yellow-200 border-yellow-400 shadow-inner" : idx >= 5 ? "bg-orange-50" : "bg-red-100"}`}
                             >
-                              <div className="flex flex-col gap-1 h-6">
-                                {items.map((b) => (
-                                  <div
-                                    key={b.id}
-                                    className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedBooking(selectedBooking === b.id ? null : b.id);
-                                    }}
-                                  >
-                                    <div className="flex items-center justify-center w-full h-full text-[7px]">
-                                      <AutoFitText text={b.clientName} className="block" min={7} max={7} />
-                                      <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">
-                                        {b.sessionNumber}
-                                      </div>
-                                    </div>
-                                    {selectedBooking === b.id && (
-                                      <button
-                                        title="Удалить"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          requestDeleteBooking(b.id);
-                                        }}
-                                        className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
-                                      >
-                                        ✕
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </td>
+                              <div className="italic text-[7px] text-center">{monthShort}</div>
+                              <div className="font-bold text-center text-[11px]">{weekday2}</div>
+                            </th>
                           );
                         })}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })}
+                    </thead>
+
+                    <tbody>
+                      {HOURS.map((h) => (
+                        <tr key={h}>
+                          {weekDaysArr.map((day, idx) => {
+                            const items = bookingsForDayHour(day, h);
+                            const isBooked = items.length > 0;
+                            return (
+                              <td
+                                key={idx}
+                                onClick={() => {
+                                  if (!isBooked) {
+                                    setModalDate(day);
+                                    setModalHour(h);
+                                    setModalClient(activeClients()[0] || "");
+                                    setModalOpen(true);
+                                  }
+                                }}
+                                className={`border align-top px-1 py-0.5 cursor-pointer ${isBooked ? "bg-blue-200" : idx >= 5 ? "bg-orange-50" : "bg-white"}`}
+                                style={{ height: "24px" }}
+                              >
+                                <div className="flex flex-col gap-1 h-6">
+                                  {items.map((b) => (
+                                    <div
+                                      key={b.id}
+                                      className="relative rounded px-1 flex items-center justify-center cursor-pointer h-full overflow-hidden"
+                                      onClick={(e) => { e.stopPropagation(); setSelectedBooking(selectedBooking === b.id ? null : b.id); }}
+                                    >
+                                      <div className="flex items-center justify-center w-full h-full text-[7px]">
+                                        <AutoFitText text={b.clientName} className="block" min={7} max={7} />
+                                        <div className="absolute bottom-0 left-0 text-[6px] leading-none px-[1px] pb-[1px]">{b.sessionNumber}</div>
+                                      </div>
+                                      {selectedBooking === b.id && (
+                                        <button
+                                          title="Удалить"
+                                          onClick={(e) => { e.stopPropagation(); requestDeleteBooking(b.id); }}
+                                          className="absolute inset-0 flex items-center justify-center text-red-500 text-[27px]"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -556,7 +518,7 @@ export default function TrainerCalendar() {
         <div className="mt-2 space-y-2">
           {clientNames().length === 0 && <div className="text-gray-500">Нет данных</div>}
           {clientNames().map((name) => {
-            // Все пакеты клиента (и общие тоже)
+            // Находим все пакеты, где клиент участвует (в том числе в общих)
             const pkgList = packages.filter(
               (p) =>
                 p.clientName === name ||
@@ -565,11 +527,12 @@ export default function TrainerCalendar() {
 
             const activePkg = pkgList.find((p) => p.used < p.size);
 
-            // Если общий пакет есть, но этот клиент — не первый в списке, скрываем "+ пакет"
+            // Проверяем, есть ли общий пакет, где этот клиент — НЕ первый
             const sharedPkg = pkgList.find(
               (p) => Array.isArray(p.clientNames) && p.clientNames.length > 1
             );
-            const isSecondaryInShared = sharedPkg && sharedPkg.clientNames[0] !== name;
+            const isSecondaryInShared =
+              sharedPkg && sharedPkg.clientNames[0] !== name;
 
             return (
               <div key={name} className="border rounded p-1 bg-white">
@@ -580,14 +543,18 @@ export default function TrainerCalendar() {
                   >
                     <div className="font-semibold">{name}</div>
                     <div className="text-gray-600 text-[10px]">
-                      {activePkg ? `${activePkg.used}/${activePkg.size}` : "✓ завершено"}
+                      {activePkg
+                        ? `${activePkg.used}/${activePkg.size}`
+                        : "✓ завершено"}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {/* Показываем + пакет только если клиент не второстепенный в общем */}
                     {!isSecondaryInShared && (
                       <button
                         onClick={() => {
+                          // Если есть общий пакет — добавляем для всех имён
                           if (sharedPkg && Array.isArray(sharedPkg.clientNames)) {
                             setPackageClient(sharedPkg.clientNames.join(", "));
                           } else {
@@ -610,6 +577,7 @@ export default function TrainerCalendar() {
                   </div>
                 </div>
 
+                {/* Раскрытие списка пакетов */}
                 {expandedClients[name] && (
                   <div className="mt-1 ml-2">
                     {pkgList.map((p) => (
@@ -619,7 +587,7 @@ export default function TrainerCalendar() {
                           onClick={() => togglePackageExpand(p.id)}
                         >
                           <div className="text-gray-700 text-[10px]">
-                            {(p.used || 0)}/{p.size} — {formatPurchase(p.addedISO)}
+                            {`${p.used || 0}/${p.size} — ${formatPurchase(p.addedISO)}`}
                           </div>
 
                           {p.clientNames && p.clientNames.length > 1 && (
@@ -643,7 +611,9 @@ export default function TrainerCalendar() {
 
                         {expandedPackages[p.id] && (
                           <ul className="text-[10px] text-gray-600 ml-3 mt-1 list-disc">
-                            {bookingsForPackage(p.id, name).length === 0 && <li>Нет записей</li>}
+                            {bookingsForPackage(p.id, name).length === 0 && (
+                              <li>Нет записей</li>
+                            )}
                             {bookingsForPackage(p.id, name).map((b) => (
                               <li key={b.id}>
                                 {b.sessionNumber} / {p.size} —{" "}
@@ -670,23 +640,13 @@ export default function TrainerCalendar() {
             <p className="text-[11px] mb-2">
               {modalDate && format(modalDate, "d LLL (EEE)", { locale: ru })} — {formatHourForTH(modalHour)} / {formatHourForRU(modalHour)}
             </p>
-            <select
-              value={modalClient}
-              onChange={(e) => setModalClient(e.target.value)}
-              className="border w-full px-2 py-1 rounded mb-3 text-[11px]"
-            >
+            <select value={modalClient} onChange={(e) => setModalClient(e.target.value)} className="border w-full px-2 py-1 rounded mb-3 text-[11px]">
               <option value="">Выберите клиента</option>
-              {clientNames().map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+              {clientNames().map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <div className="flex gap-2">
-              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">
-                Сохранить
-              </button>
-              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">
-                Отмена
-              </button>
+              <button onClick={addBooking} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
+              <button onClick={() => setModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
             </div>
           </div>
         </div>
@@ -715,12 +675,8 @@ export default function TrainerCalendar() {
               <option value={20}>20 трен.</option>
             </select>
             <div className="flex gap-2">
-              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">
-                Сохранить
-              </button>
-              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">
-                Отмена
-              </button>
+              <button onClick={savePackage} className="flex-1 bg-blue-600 text-white py-1 rounded text-[11px]">Сохранить</button>
+              <button onClick={() => setPackageModalOpen(false)} className="flex-1 bg-gray-200 py-1 rounded text-[11px]">Отмена</button>
             </div>
           </div>
         </div>
